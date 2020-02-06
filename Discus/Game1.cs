@@ -2,8 +2,11 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System.Collections.Generic;
-
-
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Threading;
 
 namespace Discus
 {
@@ -21,6 +24,12 @@ namespace Discus
     /// </summary>
     public class Game1 : Game
     {
+        matchMakingPacket relevant;
+        bool found;
+        bool matchmaking;
+        public List<matchMakingPacket> activeMMPackets;
+        public IPEndPoint mmServer;
+        public Socket gateWay;
         public Team ballPlaceTeam;
         public bool online;
         public int actions;
@@ -60,6 +69,9 @@ namespace Discus
         protected override void Initialize()
         {
             // TODO: Add your initialization logic here
+            found = false;
+            matchmaking = true;
+            mmServer = new IPEndPoint(new IPAddress(new byte[]{ 127, 0, 0, 1 }), 1);//this is home
             playerTeam = Team.Blue;
             enemyTeam = Team.Red;
             cyborgThrow = Team.Neutral;
@@ -109,7 +121,35 @@ namespace Discus
             
             // TODO: Unload any non ContentManager content here
         }
-        
+        void StartNetworking()
+        {
+            relevant = new matchMakingPacket();
+            
+            gateWay = new Socket(SocketType.Dgram, ProtocolType.Udp);
+            Thread r = new Thread(()=> {
+                Recieve(gateWay);
+            });
+
+        }
+
+        void Recieve(Socket s)
+        {
+            while (true) {
+                byte[] buffer = new byte[1024];
+                EndPoint ep = mmServer;
+                s.ReceiveFrom(buffer, ref ep);
+                BinaryFormatter binaryFormatter = new BinaryFormatter();
+                if (matchmaking)
+                {
+                    relevant = (matchMakingPacket)binaryFormatter.Deserialize(new MemoryStream(buffer));
+                }
+                else
+                {
+                    gameplayPacket latest = (gameplayPacket)binaryFormatter.Deserialize(new MemoryStream(buffer));
+                }
+                    
+             }
+        }
         /// <summary>
         /// Allows the game to run logic such as updating the world,
         /// checking for collisions, gathering input, and playing audio.
@@ -119,10 +159,11 @@ namespace Discus
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
-
+            
+            
             // TODO: Add your update logic here
             //MainSceneLogic
-            if (whosTurn == playerTeam||online == false)
+            /*if (whosTurn == playerTeam||online == false)
             {
                 Hex.PointToHex(Mouse.GetState().Position.X, Mouse.GetState().Position.Y, hex.Width * .15f, out hoveredRow, out hoveredCol);
             }
@@ -290,7 +331,7 @@ namespace Discus
                 {
                     prevRightMouseState = ButtonState.Released;
                 }
-            }
+            }*/
             //MainSceneLogic
             base.Update(gameTime);
         }
