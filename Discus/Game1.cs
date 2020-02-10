@@ -24,12 +24,23 @@ namespace Discus
     /// </summary>
     public class Game1 : Game
     {
+        int screenOffset = 0;
+        int packetID = 0;
+        int curScroll = 0;
+        int prevScroll = 0;
+        Dictionary<string, gameplayPacket> acknowledging;
+        Dictionary<string,gameplayPacket> unacknowledged;
+        Dictionary<string, gameplayPacket> total;
         matchMakingPacket relevant;
+        string clientId;
+        string enemyId;
         bool found;
         bool matchmaking;
         public List<matchMakingPacket> activeMMPackets;
-        public IPEndPoint mmServer;
-        public Socket gateWay;
+        public IPEndPoint MainEndPoint;
+        public IPEndPoint OpponentEndPoint;
+        public Socket listener;
+        public Socket sender;
         public Team ballPlaceTeam;
         public bool online;
         public int actions;
@@ -46,14 +57,18 @@ namespace Discus
         public List<Hex> movementHexes;
         public ButtonState prevLeftMouseState;
         public ButtonState prevRightMouseState;
+        public int enemyHoveredRow;
+        public int enemyHoveredCol;
         public int hoveredRow;
         public int hoveredCol;
+        public Hex enemyHoveredSpace;
         public Hex hoveredSpace;
         public List<Hex> boardLocations;
+        Texture2D enemycursor;
         Texture2D hex;
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
-        
+        gameplayPacket newest;
         public Game1()
         {
             graphics = new GraphicsDeviceManager(this);
@@ -68,10 +83,12 @@ namespace Discus
         /// </summary>
         protected override void Initialize()
         {
+            newest = new gameplayPacket();
             // TODO: Add your initialization logic here
             found = false;
             matchmaking = true;
-            mmServer = new IPEndPoint(new IPAddress(new byte[]{ 127, 0, 0, 1 }), 1);//this is home
+            MainEndPoint = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 0);//bind to this
+            OpponentEndPoint = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 57735);//send to this
             playerTeam = Team.Blue;
             enemyTeam = Team.Red;
             cyborgThrow = Team.Neutral;
@@ -96,19 +113,21 @@ namespace Discus
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
             hex = Content.Load<Texture2D>("hex");
+            enemycursor = Content.Load<Texture2D>("movementhexoverlay");
             boardLocations = new List<Hex>();
             for (int y = 0; y < 25; y++)
             {
                 for (int x = 0; x < 17; x++)
                 {
                     Vector2 location = Hex.HexToPoints(hex.Width * .15f, y, x);
-                    boardLocations.Add(new Hex(location + new Vector2(hex.Width*.075f,0),y,x));
+                    boardLocations.Add(new Hex(location + new Vector2(hex.Width * .075f, 0), y, x));
                 }
             }
             for (int i = 0; i < 20; i++)
             {
                 boardLocations[i].PopulateNeighbors(boardLocations);
             }
+            StartNetworking();
             // TODO: use this.Content to load your game content here
         }
 
@@ -118,37 +137,271 @@ namespace Discus
         /// </summary>
         protected override void UnloadContent()
         {
-            
+
             // TODO: Unload any non ContentManager content here
         }
         void StartNetworking()
         {
             relevant = new matchMakingPacket();
-            
-            gateWay = new Socket(SocketType.Dgram, ProtocolType.Udp);
-            Thread r = new Thread(()=> {
-                Recieve(gateWay);
+
+            listener = new Socket(SocketType.Dgram, ProtocolType.Udp);
+
+            listener.Bind(MainEndPoint);
+            acknowledging = new Dictionary<string, gameplayPacket>();
+            unacknowledged = new Dictionary<string, gameplayPacket>();
+            total = new Dictionary<string, gameplayPacket>();
+            relevant.ip = MainEndPoint.Address.GetAddressBytes();
+            relevant.port = MainEndPoint.Port;
+            sender = new Socket(SocketType.Dgram, ProtocolType.Udp);
+
+
+            Thread r = new Thread(() => {
+                Recieve(listener);
             });
+            r.Start();
+            Thread s = new Thread(() => {
+                Send(sender);
+            });
+            s.Start();
 
         }
-
-        void Recieve(Socket s)
+        void Send(Socket s)
         {
-            while (true) {
-                byte[] buffer = new byte[1024];
-                EndPoint ep = mmServer;
-                s.ReceiveFrom(buffer, ref ep);
-                BinaryFormatter binaryFormatter = new BinaryFormatter();
-                if (matchmaking)
+            
+            Thread pulseUnacknowledged = new Thread(() => {
+                while (true)
                 {
-                    relevant = (matchMakingPacket)binaryFormatter.Deserialize(new MemoryStream(buffer));
+                    Thread.Sleep(4);
+                    lock (unacknowledged)
+                    {
+
+                        foreach (string item in unacknowledged.Keys)
+                        {
+                            BinaryFormatter bf = new BinaryFormatter();
+                            MemoryStream m = new MemoryStream();
+                            bf.Serialize(m, (unacknowledged[item]));
+                            lock (sender)
+                            {
+                                sender.SendTo(m.GetBuffer(), OpponentEndPoint);
+                            }
+                        }
+                    }
+                }
+
+            });
+            Thread pulseAcknowledging = new Thread(() => {
+                while (true)
+                {
+                    Thread.Sleep(4);
+
+                    lock (acknowledging)
+                    {
+                        foreach (string item in acknowledging.Keys)
+                        {
+                            BinaryFormatter bf = new BinaryFormatter();
+                            MemoryStream m = new MemoryStream();
+                            bf.Serialize(m, (acknowledging[item]));
+                            lock (sender)
+                            {
+                                sender.SendTo(m.GetBuffer(), OpponentEndPoint);
+                            }
+                        }
+                    }
+                }
+
+            });
+            pulseAcknowledging.Start();
+            pulseUnacknowledged.Start();
+            while (true)
+            {
+               
+                
+                if (found)
+                {
+                    Thread.Sleep(1000 / 30);
+
+
+                    networkLeftClick = newest.leftClick;
+                    networkRightClick = newest.rightClick;
+                    enemyHoveredCol = newest.col;
+                    enemyHoveredRow = newest.row;
+                    networkLeftClick = newest.leftClick;
+                    networkRightClick = newest.rightClick;
+                    MemoryStream temp = new MemoryStream();
+                    EndPoint ep = OpponentEndPoint;
+                    gameplayPacket latest = new gameplayPacket();
+                    latest.col = hoveredCol;
+                    latest.row = hoveredRow;
+                    latest.rightClick = prevRightMouseState == ButtonState.Pressed;
+                    latest.leftClick = prevLeftMouseState == ButtonState.Pressed;
+                    latest.arbiterId = clientId;
+                    int i = 0; 
+                    while (total.ContainsKey(packetID.ToString()))
+                    {
+                        packetID= (packetID+1)%9999;
+                        i++;
+                        if (i > 9999)
+                        {
+                            total = new Dictionary<string, gameplayPacket>();//this is very sloppy but should be ok???????????
+                            packetID = 0;
+                        }
+                    }
+                    latest.id = clientId + packetID;
+                    
+                    
+                        lock (unacknowledged)
+                        {
+                            lock (total)
+                            {
+                                latest.acknowledged = false;
+                                unacknowledged.Add(packetID.ToString(), latest);
+                                total.Add(packetID.ToString(), latest);
+                            }
+                        }
+                    
+                    
+                    
+                    BinaryFormatter bf = new BinaryFormatter();
+                    temp = new MemoryStream();
+                    bf.Serialize(temp, latest);
+                    lock (sender)
+                    {
+                        sender.SendTo(temp.GetBuffer(), ep);
+                    }
+                    
+                }
+                else if (matchmaking)
+                {
+                    MemoryStream temp = new MemoryStream();
+                    EndPoint ep = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 57735);
+                    matchMakingPacket latest = new matchMakingPacket();
+                    latest.acknowledged = false;
+                    latest.ip =new byte[]{ ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[12],((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[13],((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[14],((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[15]};
+                    latest.port = ((IPEndPoint)listener.LocalEndPoint).Port;
+                    BinaryFormatter bf = new BinaryFormatter();
+                    bf.Serialize(temp, latest);
+                    lock (sender)
+                    {
+                        sender.SendTo(temp.GetBuffer(), ep);
+                    }
+                    Thread.Sleep(2000);
+                    
                 }
                 else
                 {
-                    gameplayPacket latest = (gameplayPacket)binaryFormatter.Deserialize(new MemoryStream(buffer));
+                    //nicks code will go here someday i think
                 }
+
+            }
+        }
+        void Recieve(Socket s)
+        {
+            
+            
+            while (true)
+            {
+                if (matchmaking)
+                {
+                    byte[] buffer = new byte[1024];
+
+                    EndPoint enemyClient = new IPEndPoint(IPAddress.Any, 0);
+
+                    s.ReceiveFrom(buffer, ref enemyClient);
+                    BinaryFormatter binaryFormatter = new BinaryFormatter();
+                    var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
+                    if (latest is matchMakingPacket)
+                    {
+                        matchMakingPacket mm = (matchMakingPacket)latest;
+                        sender.SendTo(buffer, OpponentEndPoint);
+                        OpponentEndPoint = new IPEndPoint(new IPAddress(mm.ip), mm.port);
+                        clientId = mm.clientID;
+                        enemyId = mm.enemyID;
+                        playerTeam = (Discus.Team)mm.color;
+                        found = true;
+                        matchmaking = false;
+                        Thread.Sleep(3000);
+                    }
+                    else
+                    {
+                        found = true;
+                        matchmaking = false;
+                    }
+
+                }
+                else
+                {
+                    byte[] buffer = new byte[1024];
                     
-             }
+                    EndPoint enemyClient = new IPEndPoint(IPAddress.Any, 0);
+                    s.ReceiveFrom(buffer, ref enemyClient);
+                    
+                    BinaryFormatter binaryFormatter = new BinaryFormatter();
+                    var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
+                    if (latest is gameplayPacket)
+                    {
+                        gameplayPacket gpp = (gameplayPacket)latest;
+                        if (gpp.arbiterId == enemyId)
+                        {
+                            if (gpp.acknowledged)
+                            {
+                                lock (acknowledging)
+                                {
+                                    acknowledging.Remove(gpp.id.Substring(clientId.Length));
+                                }
+                                
+                                lock (sender)
+                                {
+                                    sender.SendTo(buffer, OpponentEndPoint);
+                                }
+                            }
+                            else
+                            {
+                                gpp.acknowledged = true;
+                                newest = gpp;
+                                networkLeftClick = gpp.leftClick;
+                                networkRightClick = gpp.rightClick;
+                                enemyHoveredCol = gpp.col;
+                                enemyHoveredRow = gpp.row;
+                                networkLeftClick = gpp.leftClick;
+                                networkRightClick = gpp.rightClick;
+                                lock (acknowledging)
+                                {
+                                    if (!acknowledging.ContainsKey(gpp.id.Substring(clientId.Length)))
+                                    {
+                                        acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
+                                    }
+                                    else
+                                    {
+                                        acknowledging[gpp.id.Substring(clientId.Length)] = gpp;
+                                    }
+                                }
+                            }
+                        }
+                        else if (gpp.arbiterId == clientId)
+                        {
+                            if (gpp.acknowledged)
+                            {
+                                lock (sender)
+                                {
+                                    sender.SendTo(buffer, OpponentEndPoint);
+                                }
+                                lock (unacknowledged)
+                                {
+                                    if (unacknowledged.ContainsKey(gpp.id.Substring(clientId.Length)))
+                                    {
+                                        unacknowledged.Remove(gpp.id.Substring(clientId.Length));
+                                    }
+                                }
+                            }
+                            else
+                            {
+
+                            }
+                        }
+                    }
+
+                }
+            }
         }
         /// <summary>
         /// Allows the game to run logic such as updating the world,
@@ -158,26 +411,46 @@ namespace Discus
         protected override void Update(GameTime gameTime)
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
+            {
+                listener.Close();
                 Exit();
-            
-            
-            // TODO: Add your update logic here
-            //MainSceneLogic
-            /*if (whosTurn == playerTeam||online == false)
-            {
-                Hex.PointToHex(Mouse.GetState().Position.X, Mouse.GetState().Position.Y, hex.Width * .15f, out hoveredRow, out hoveredCol);
             }
-            else
+            curScroll = Mouse.GetState().ScrollWheelValue;
+            if (curScroll > prevScroll)
             {
-                //network input sending/recieving
+                screenOffset += 10;
             }
+            else if (prevScroll > curScroll)
+            {
+                screenOffset -= 10;
+            }
+            prevScroll = curScroll;
+            Hex.PointToHex(Mouse.GetState().Position.X, Mouse.GetState().Position.Y-screenOffset, hex.Width * .15f, out hoveredRow, out hoveredCol);
+
             for (int i = 0; i < boardLocations.Count; i++)
             {
                 if (boardLocations[i].gridLocation[0] == hoveredRow && boardLocations[i].gridLocation[1] == hoveredCol)
                 {
                     hoveredSpace = boardLocations[i];
                 }
+                if (boardLocations[i].gridLocation[0] == enemyHoveredRow && boardLocations[i].gridLocation[1] == enemyHoveredCol)
+                {
+                    enemyHoveredSpace = boardLocations[i];
+                }
             }
+            prevLeftMouseState = Mouse.GetState().LeftButton;
+            prevRightMouseState = Mouse.GetState().RightButton;
+            // TODO: Add your update logic here
+            //MainSceneLogic
+            /*if (whosTurn == playerTeam||online == false)
+            {
+               
+            }
+            else
+            {
+                //network input sending/recieving
+            }
+            
             //click on piece
             if (Mouse.GetState().LeftButton == ButtonState.Released && prevLeftMouseState == ButtonState.Pressed && action == "")
             {
@@ -346,13 +619,30 @@ namespace Discus
             spriteBatch.Begin();
             foreach (Hex space in boardLocations)
             {
-                spriteBatch.Draw(texture: hex, position: space.location, scale: new Vector2(.15f,.15f), rotation:MathHelper.Pi / 2);
+                spriteBatch.Draw(texture: hex, position: space.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2);
             }
             //spriteBatch.Draw(texture: hex, position: space.downNeighbor.location, scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
 
             if (hoveredSpace != null)
             {
-                spriteBatch.Draw(texture: hex, position: hoveredSpace.location, scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
+                spriteBatch.Draw(texture: hex, position: hoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
+                if (prevLeftMouseState == ButtonState.Pressed)
+                {
+                    spriteBatch.Draw(texture: enemycursor, position: hoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
+
+                }
+            }
+            if (enemyHoveredSpace != null)
+            {
+                if (networkLeftClick)
+                {
+                    spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
+
+                }
+                else
+                {
+                    spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2);
+                }
             }
             // TODO: Add your drawing code here
             spriteBatch.End();

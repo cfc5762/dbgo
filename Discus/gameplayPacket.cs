@@ -9,11 +9,13 @@ namespace Discus
     [Serializable]
     public class gameplayPacket
     {
-        string arbiterId;
-        public int id;
+        public bool acknowledged;
+        public string arbiterId;
+        public string id;
         public int activeCommand;
-        bool leftClick;
-        bool rightClick;
-        int[] hexLocation;
+        public bool leftClick;
+        public bool rightClick;
+        public int col;
+        public int row;
     }
 }
