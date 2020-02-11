@@ -232,8 +232,8 @@ namespace Discus
                     gameplayPacket latest = new gameplayPacket();
                     latest.col = hoveredCol;
                     latest.row = hoveredRow;
-                    latest.rightClick = prevRightMouseState == ButtonState.Pressed;
-                    latest.leftClick = prevLeftMouseState == ButtonState.Pressed;
+                    latest.rightClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
+                    latest.leftClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
                     latest.arbiterId = clientId;
                     int i = 0; 
                     while (total.ContainsKey(packetID.ToString()))
@@ -266,6 +266,7 @@ namespace Discus
                     bf.Serialize(temp, latest);
                     lock (sender)
                     {
+                        Thread.Sleep(100);
                         sender.SendTo(temp.GetBuffer(), ep);
                     }
                     
@@ -334,72 +335,73 @@ namespace Discus
                     
                     EndPoint enemyClient = new IPEndPoint(IPAddress.Any, 0);
                     s.ReceiveFrom(buffer, ref enemyClient);
-                    
-                    BinaryFormatter binaryFormatter = new BinaryFormatter();
-                    var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
-                    if (latest is gameplayPacket)
-                    {
-                        gameplayPacket gpp = (gameplayPacket)latest;
-                        if (gpp.arbiterId == enemyId)
+                     
+
+                        BinaryFormatter binaryFormatter = new BinaryFormatter();
+                        var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
+                        if (latest is gameplayPacket)
                         {
-                            if (gpp.acknowledged)
+                            gameplayPacket gpp = (gameplayPacket)latest;
+                            if (gpp.arbiterId == enemyId)
                             {
-                                lock (acknowledging)
+                                if (gpp.acknowledged)
                                 {
-                                    acknowledging.Remove(gpp.id.Substring(clientId.Length));
+                                    lock (acknowledging)
+                                    {
+                                        acknowledging.Remove(gpp.id.Substring(clientId.Length));
+                                    }
+
+                                    lock (sender)
+                                    {
+                                        sender.SendTo(buffer, OpponentEndPoint);
+                                    }
                                 }
-                                
-                                lock (sender)
+                                else
                                 {
-                                    sender.SendTo(buffer, OpponentEndPoint);
+                                    gpp.acknowledged = true;
+                                    newest = gpp;
+                                    networkLeftClick = gpp.leftClick;
+                                    networkRightClick = gpp.rightClick;
+                                    enemyHoveredCol = gpp.col;
+                                    enemyHoveredRow = gpp.row;
+                                    networkLeftClick = gpp.leftClick;
+                                    networkRightClick = gpp.rightClick;
+                                    lock (acknowledging)
+                                    {
+                                        if (!acknowledging.ContainsKey(gpp.id.Substring(clientId.Length)))
+                                        {
+                                            acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
+                                        }
+                                        else
+                                        {
+                                            acknowledging[gpp.id.Substring(clientId.Length)] = gpp;
+                                        }
+                                    }
                                 }
                             }
-                            else
+                            else if (gpp.arbiterId == clientId)
                             {
-                                gpp.acknowledged = true;
-                                newest = gpp;
-                                networkLeftClick = gpp.leftClick;
-                                networkRightClick = gpp.rightClick;
-                                enemyHoveredCol = gpp.col;
-                                enemyHoveredRow = gpp.row;
-                                networkLeftClick = gpp.leftClick;
-                                networkRightClick = gpp.rightClick;
-                                lock (acknowledging)
+                                if (gpp.acknowledged)
                                 {
-                                    if (!acknowledging.ContainsKey(gpp.id.Substring(clientId.Length)))
+                                    lock (sender)
                                     {
-                                        acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
+                                        sender.SendTo(buffer, OpponentEndPoint);
                                     }
-                                    else
+                                    lock (unacknowledged)
                                     {
-                                        acknowledging[gpp.id.Substring(clientId.Length)] = gpp;
+                                        if (unacknowledged.ContainsKey(gpp.id.Substring(clientId.Length)))
+                                        {
+                                            unacknowledged.Remove(gpp.id.Substring(clientId.Length));
+                                        }
                                     }
+                                }
+                                else
+                                {
+
                                 }
                             }
                         }
-                        else if (gpp.arbiterId == clientId)
-                        {
-                            if (gpp.acknowledged)
-                            {
-                                lock (sender)
-                                {
-                                    sender.SendTo(buffer, OpponentEndPoint);
-                                }
-                                lock (unacknowledged)
-                                {
-                                    if (unacknowledged.ContainsKey(gpp.id.Substring(clientId.Length)))
-                                    {
-                                        unacknowledged.Remove(gpp.id.Substring(clientId.Length));
-                                    }
-                                }
-                            }
-                            else
-                            {
-
-                            }
-                        }
-                    }
-
+                   
                 }
             }
         }
