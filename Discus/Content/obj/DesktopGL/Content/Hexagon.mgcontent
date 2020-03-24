@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PipelineBuildEvent xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <SourceFile>C:/Users/Chris Commisso/source/repos/Discus/Discus/Content/Hexagon.png</SourceFile>
+  <SourceFile>C:/Users/Chris Commisso/source/repos/dbgo/Discus/Content/Hexagon.png</SourceFile>
   <SourceTime>2019-12-24T17:26:54.5528817-05:00</SourceTime>
-  <DestFile>C:/Users/Chris Commisso/source/repos/Discus/Discus/Content/bin/DesktopGL/Content/Hexagon.xnb</DestFile>
-  <DestTime>2019-12-31T13:00:40.4105247-05:00</DestTime>
+  <DestFile>C:/Users/Chris Commisso/source/repos/dbgo/Discus/Content/bin/DesktopGL/Content/Hexagon.xnb</DestFile>
+  <DestTime>2020-03-24T11:38:45.7059022-04:00</DestTime>
   <Importer>TextureImporter</Importer>
   <ImporterTime>2018-12-08T11:35:54-05:00</ImporterTime>
   <Processor>TextureProcessor</Processor>

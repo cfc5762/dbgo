@@ -49,7 +49,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Discus\Discus\Discus.csproj">
+    <ProjectReference Include="..\Discus\Discus.csproj">
       <Project>{bf21c496-3fe9-4b59-8095-a32965845ece}</Project>
       <Name>Discus</Name>
     </ProjectReference>

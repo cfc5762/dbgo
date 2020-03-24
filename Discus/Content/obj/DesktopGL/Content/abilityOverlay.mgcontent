@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PipelineBuildEvent xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <SourceFile>C:/Users/Chris Commisso/source/repos/Discus/Discus/Content/abilityOverlay.png</SourceFile>
+  <SourceFile>C:/Users/Chris Commisso/source/repos/dbgo/Discus/Content/abilityOverlay.png</SourceFile>
   <SourceTime>2020-03-10T16:13:20.0572939-04:00</SourceTime>
-  <DestFile>C:/Users/Chris Commisso/source/repos/Discus/Discus/Content/bin/DesktopGL/Content/abilityOverlay.xnb</DestFile>
-  <DestTime>2020-03-10T18:12:23.0110564-04:00</DestTime>
+  <DestFile>C:/Users/Chris Commisso/source/repos/dbgo/Discus/Content/bin/DesktopGL/Content/abilityOverlay.xnb</DestFile>
+  <DestTime>2020-03-24T11:38:45.102219-04:00</DestTime>
   <Importer>TextureImporter</Importer>
   <ImporterTime>2018-12-08T11:35:54-05:00</ImporterTime>
   <Processor>TextureProcessor</Processor>
