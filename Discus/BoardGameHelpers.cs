@@ -20,16 +20,125 @@ namespace Discus
             }
             
         }
+        public static void resolveCommand(int cmd)
+        {
+            switch (cmd)
+            {
+                case 1:
+                    
+                    if (Program.game.whosTurn == Program.game.playerTeam)
+                    {
+                        if (Program.game.whosTurn == Team.Red)
+                        {
+                            Program.game.whosTurn = Team.Blue;
+                        }
+                        else
+                        {
+                            Program.game.whosTurn = Team.Red;
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        public static ballDir getDir(Hex fromHex, Hex toHex)
+        {
+            Hex up = fromHex.upNeighbor, upleft = fromHex.upLeftNeighbor, upright = fromHex.upRightNeighbor, down = fromHex.downNeighbor, downleft = fromHex.downLeftNeighbor, downright = fromHex.downRightNeighbor;
+            for (int i = 0; i < 10; i++)
+            {//search the graph in all 6 given directions for the space
+                if (up == toHex)
+                {
+                    return ballDir.up;
+                }
+                if (upleft == toHex)
+                {
+                    return ballDir.upLeft;
+                }
+                if (upright == toHex)
+                {
+                    return ballDir.upRight;
+                }
+                if (down == toHex)
+                {
+                    return ballDir.down;
+                }
+                if (downleft == toHex)
+                {
+                    return ballDir.downLeft;
+                }
+                if (downright == toHex)
+                {
+                    return ballDir.downRight;
+                }
+                up = up.upNeighbor;
+            upleft = upleft.upLeftNeighbor;
+           upright = upright.upRightNeighbor;
+              down = down.downNeighbor;
+          downleft = downleft.downLeftNeighbor;
+         downright = downright.downRightNeighbor;
+            }
+            return ballDir.noDir;
+        }
+        public static void placeBall(Hex h,Ball b,Team whosTurn)
+        {
+            if (h.piece != null)
+            {
+               
+                    Program.game.ballPlaceTeam = h.piece.team;
+                    Program.game.action = "placeball";
+                    Program.game.actionHex = h;
+                    Program.game.abilityHexes = h.GetNeighbors();
+                    Program.game.movementHexes = new List<Hex>(); 
+               
+            }
+            else
+            {//place on an empty space
+                Program.game.movementHexes = new List<Hex>();
+                Program.game.abilityHexes = new List<Hex>();
+                h.piece = b;
+                ((Ball)h.piece).ownerSpace = Program.game.actionHex;
+                h.piece.team = Program.game.actionHex.piece.team;
+                Program.game.action = "";
+                Program.game.ballFlying = false;
+            }
+        }
+        public static void curveBall(bool curveLeft, ballDir d)
+        {
+            if (curveLeft)
+            {
+                if ((int)d == 0)
+                {
+                    d = (ballDir)6;
+                }
+                else
+                {
+                    d = (ballDir)(d - 1);
+                }
+            }
+            else
+            {
+                if ((int)d == 5)
+                {
+                    d = (ballDir)0;
+                }
+                else
+                {
+                    d = (ballDir)(d + 1);
+                }
+            }
+        }
         public static void moveBall(Hex ballLocationStart, ballDir direction)
         {
             Hex curhex = ballLocationStart;
             switch (direction)
             {
                 case ballDir.upLeft:
-                    for (int j = 0; j < 3; j++)
+                    for (int j = 0; j < 4; j++)
                     {
                         if (curhex.upLeftN == null)
                         {
+                            Program.game.cyborgThrow = Team.Neutral;
                             Program.game.ballFlying = false;
                             break;
 
@@ -39,14 +148,16 @@ namespace Discus
 
                             Program.game.actionHex = curhex.upLeftN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
+                            Program.game.action = "placeball";
                             Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
+                            Program.game.cyborgThrow = Team.Neutral;
                             break;
                         }
                         else if (curhex.upLeftN.piece != null)
                         {
+                            Program.game.cyborgThrow = Team.Neutral;
                             Program.game.ballFlying = false;
                             break;
                         }
@@ -59,10 +170,11 @@ namespace Discus
                     }
                     break;
                 case ballDir.up:
-                    for (int j = 0; j < 3; j++)
+                    for (int j = 0; j < 4; j++)
                     {
                         if (curhex.upN == null)
                         {
+                            Program.game.cyborgThrow = Team.Neutral;
                             Program.game.ballFlying = false;
                             break;
                         }
@@ -78,6 +190,7 @@ namespace Discus
                         }
                         else if (curhex.upN.piece != null)
                         {
+                            Program.game.cyborgThrow = Team.Neutral;
                             Program.game.ballFlying = false;
                             break;
                         }
@@ -89,10 +202,11 @@ namespace Discus
                     }
                     break;
                 case ballDir.upRight:
-                    for (int j = 0; j < 3; j++)
+                    for (int j = 0; j < 4; j++)
                     {
                         if (curhex.upRightN == null)
                         {
+                            Program.game.cyborgThrow = Team.Neutral;
                             Program.game.ballFlying = false;
                             break;
                         }
@@ -108,6 +222,7 @@ namespace Discus
                         }
                         else if (curhex.upRightN.piece != null)
                         {
+
                             Program.game.ballFlying = false;
                             break;
                         }
@@ -118,10 +233,11 @@ namespace Discus
                     }
                     break;
                 case ballDir.downRight:
-                    for (int j = 0; j < 3; j++)
+                    for (int j = 0; j < 4; j++)
                     {
                         if (curhex.downRightN == null)
                         {
+                            Program.game.cyborgThrow = Team.Neutral;
                             Program.game.ballFlying = false;
                             break;
                         }
@@ -148,10 +264,11 @@ namespace Discus
                     }
                     break;
                 case ballDir.down:
-                    for (int j = 0; j < 3; j++)
+                    for (int j = 0; j < 4; j++)
                     {
                         if (curhex.downN == null)
                         {
+                            Program.game.cyborgThrow = Team.Neutral;
                             Program.game.ballFlying = false;
                             break;
                         }
@@ -178,10 +295,11 @@ namespace Discus
                     }
                     break;
                 case ballDir.downLeft:
-                    for (int j = 0; j < 3; j++)
+                    for (int j = 0; j < 4; j++)
                     {
                         if (curhex.downLeftN == null)
                         {
+                            Program.game.cyborgThrow = Team.Neutral;
                             Program.game.ballFlying = false;
                             break;
                         }
@@ -211,8 +329,11 @@ namespace Discus
                     break;
                     
             }
-            curhex.piece = ballLocationStart.piece;
-            ballLocationStart.piece = null;
+            if (Program.game.action != "placeball")
+            {
+                curhex.piece = ballLocationStart.piece;
+                ballLocationStart.piece = null;
+            }
         }
         public static void tryMovePiece(Hex toSpace)
         {

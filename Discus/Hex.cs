@@ -9,6 +9,295 @@ namespace Discus
 {
     public class Hex
     {
+        public List<Hex> getMoveAreaInterceptor(int dist,ballDir direction)
+        {
+            List<Hex> moveArea = new List<Hex>();
+            for (int i = 0; i < 6; i++)
+            {
+                Hex curhex = this;
+                if (i == 0)//upleft
+                {
+                    int tempDist = dist;
+                    if ((int)direction == i)
+                    {
+                        tempDist++;
+                    }
+                    for (int j = 0; j < tempDist; j++)
+                    {
+                        if (curhex.upLeftN == null)
+                        {
+                            break;
+                        }
+                        else if (curhex.upLeftN.piece is Ball)
+                        {
+                            curhex = curhex.upLeftN;
+                            moveArea.Add(curhex);
+                            break;
+                        }
+                        else if (curhex.upLeftN.piece != null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.upLeftN;
+                            moveArea.Add(curhex);
+                        }
+                        
+                    }
+                }
+                if (i == 1)//up
+                {
+                    int tempDist = dist;
+                    if ((int)direction == i)
+                    {
+                        tempDist++;
+                    }
+                    for (int j = 0; j < tempDist; j++)
+                    {
+                        if (curhex.upN == null)
+                        {
+                            break;
+                        }
+                        else if (curhex.upN.piece is Ball)
+                        {
+                            curhex = curhex.upN;
+                            moveArea.Add(curhex);
+                            break;
+                        }
+                        else if (curhex.upN.piece != null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.upN;
+                            moveArea.Add(curhex);
+                        }
+
+                    }
+                }
+                if (i == 2)//upright
+                {
+                    int tempDist = dist;
+                    if ((int)direction == i)
+                    {
+                        tempDist++;
+                    }
+                    for (int j = 0; j < tempDist; j++)
+                    {
+                        if (curhex.upRightN == null)
+                        {
+                            break;
+                        }
+                        else if (curhex.upRightN.piece is Ball)
+                        {
+                            curhex = curhex.upRightN;
+                            moveArea.Add(curhex);
+                            break;
+                        }
+                        else if (curhex.upRightN.piece != null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.upRightN;
+                            moveArea.Add(curhex);
+                        }
+
+                    }
+                }
+                if (i == 3)//downright
+                {
+                    int tempDist = dist;
+                    if ((int)direction == i)
+                    {
+                        tempDist++;
+                    }
+                    for (int j = 0; j < tempDist; j++)
+                    {
+                        if (curhex.downRightN == null)
+                        {
+                            break;
+                        }
+                        else if (curhex.downRightN.piece is Ball)
+                        {
+                            curhex = curhex.downRightN;
+                            moveArea.Add(curhex);
+                            break;
+                        }
+                        else if (curhex.downRightN.piece != null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.downRightN;
+                            moveArea.Add(curhex);
+                        }
+
+                    }
+                }
+                if (i == 4)//down
+                {
+                    int tempDist = dist;
+                    if ((int)direction == i)
+                    {
+                        tempDist++;
+                    }
+                    for (int j = 0; j < tempDist; j++)
+                    {
+                        if (curhex.downN == null)
+                        {
+                            break;
+                        }
+                        else if (curhex.downN.piece is Ball)
+                        {
+                            curhex = curhex.downN;
+                            moveArea.Add(curhex);
+                            break;
+                        }
+                        else if (curhex.downN.piece != null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.downN;
+                            moveArea.Add(curhex);
+                        }
+
+                    }
+                }
+                if (i == 5)//downleft
+                {
+                    int tempDist = dist;
+                    if ((int)direction == i)
+                    {
+                        tempDist++;
+                    }
+                    for (int j = 0; j < tempDist; j++)
+                    {
+                        if (curhex.downLeftN == null)
+                        {
+                            break;
+                        }
+                        else if (curhex.downLeftN.piece is Ball)
+                        {
+                            curhex = curhex.downLeftN;
+                            moveArea.Add(curhex);
+                            break;
+                        }
+                        else if (curhex.downLeftN.piece != null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.downLeftN;
+                            moveArea.Add(curhex);
+                        }
+
+                    }
+                }
+            }
+            return moveArea;
+        }
+        public List<Hex> GetNeighbors()
+        {
+            List<Hex> moveArea = new List<Hex>();
+             for (int i = 0; i < 6; i++)
+            {
+                Hex curhex = this;
+                if (i == 0)//upleft
+                {
+                    
+                        if (curhex.upLeftN == null)
+                        {
+                            break;
+                        }
+                        
+                       
+                        else
+                        {
+                            curhex = curhex.upLeftN;
+                            moveArea.Add(curhex);
+                        }
+
+                    
+                }
+                if (i == 1)//up
+                {
+                    
+                        if (curhex.upN == null)
+                        {
+                            break;
+                        }
+                       
+                        else
+                        {
+                            curhex = curhex.upN;
+                            moveArea.Add(curhex);
+                        }
+
+                    
+                }
+                if (i == 2)//upright
+                { 
+                        if (curhex.upRightN == null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.upRightN;
+                            moveArea.Add(curhex);
+                        }
+                }
+                if (i == 3)//downright
+                {
+                        if (curhex.downRightN == null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.downRightN;
+                            moveArea.Add(curhex);
+                        }
+                }
+                if (i == 4)//down
+                {
+                    
+                        if (curhex.downN == null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.downN;
+                            moveArea.Add(curhex);
+                        }
+                }
+                if (i == 5)//downleft
+                {
+                   
+                        if (curhex.downLeftN == null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            curhex = curhex.downLeftN;
+                            moveArea.Add(curhex);
+                        }
+
+                    
+                }
+            }
+            return moveArea;
+        }
         public List<Hex> getMoveArea(int dist)
         {
             List<Hex> moveArea = new List<Hex>();
@@ -272,32 +561,67 @@ namespace Discus
                 {
                     upN = space;
                 }
-                else if (this.gridLocation[0] == space.gridLocation[0] && this.gridLocation[1] - 1 == space.gridLocation[1])
-                {
-                    upLeftN = space;
-                }
-                else if (this.gridLocation[0] == space.gridLocation[0] && this.gridLocation[1] + 1 == space.gridLocation[1])
-                {
-                    upRightN = space;
-                }
-                else if (this.gridLocation[0]+1 == space.gridLocation[0] && this.gridLocation[1] - 1 == space.gridLocation[1])
-                {
-                    downLeftN = space;
-                }
-                else if (this.gridLocation[0] + 1 == space.gridLocation[0] && this.gridLocation[1] + 1 == space.gridLocation[1])
-                {
-                    downRightN = space;
-                }
                 else if (this.gridLocation[0] + 1 == space.gridLocation[0] && this.gridLocation[1] == space.gridLocation[1])
                 {
                     downN = space;
                 }
+                else if (this.gridLocation[1] % 2 == 1)
+                {
+                    if (this.gridLocation[0] == space.gridLocation[0] && this.gridLocation[1] + 1 == space.gridLocation[1])
+                    {
+                        upRightN = space;
+                    }
+                    else if (this.gridLocation[0] + 1 == space.gridLocation[0] && this.gridLocation[1] - 1 == space.gridLocation[1])
+                    {
+                        downLeftN = space;
+                    }
+                    else if (this.gridLocation[0] + 1 == space.gridLocation[0] && this.gridLocation[1] + 1 == space.gridLocation[1])
+                    {
+                        downRightN = space;
+                    }
+                    else if (this.gridLocation[0] == space.gridLocation[0] && this.gridLocation[1] - 1 == space.gridLocation[1])
+                    {
+                        upLeftN = space;
+                    }
+                }
+                else
+                {
+                    if (this.gridLocation[0] == space.gridLocation[0] && this.gridLocation[1] - 1 == space.gridLocation[1])
+                    {
+                        downLeftN = space;
+                    }
+                    else if (this.gridLocation[0]-1 == space.gridLocation[0] && this.gridLocation[1] + 1 == space.gridLocation[1])
+                    {
+                        upRightN = space;
+                    }
+                    else if (this.gridLocation[0] == space.gridLocation[0] && this.gridLocation[1] + 1 == space.gridLocation[1])
+                    {
+                        downRightN = space;
+                    }
+                    else if (this.gridLocation[0]-1 == space.gridLocation[0] && this.gridLocation[1] - 1 == space.gridLocation[1])
+                    {
+                        upLeftN = space;
+                    }
+                }
+                
             }
         }
         int row;
         int col;
         public readonly Vector2 location;
-        public Piece piece;
+        private Piece _piece;
+        public Piece piece
+        {
+            get { return _piece; }
+            set { _piece = value;
+                if(value!=null)
+                _piece.hexPos = new Vector2(this.gridLocation[0], this.gridLocation[1]);//im da king rat who makes all da rules
+                if (value is Ball)
+                {
+                    Program.game.ballHex = this;
+                }
+            }
+        }
         public static Vector2 HexToPoints(float height, float row, float col)
         {
             // Start with the leftmost corner of the upper left hexagon.

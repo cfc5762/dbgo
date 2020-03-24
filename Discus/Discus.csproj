@@ -66,6 +66,7 @@
     <Compile Include="Hex.cs" />
     <Compile Include="Interceptor.cs" />
     <Compile Include="matchMakingPacket.cs" />
+    <Compile Include="packetCluster.cs" />
     <Compile Include="Piece.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -8,7 +8,7 @@ namespace Discus
 {
     class Ball:Piece
     {
-        public Piece owner;
+        public Hex ownerSpace;
         public Ball(Team T) : base(T)
         {
 

@@ -12,24 +12,27 @@ namespace Discus
 {
     public enum ballDir
     {
-        upLeft,
-        up,
-        upRight,
-        downRight,
-        down,
-        downLeft
+        upLeft=0,
+        up=1,
+        upRight=2,
+        downRight=3,
+        down=4,
+        downLeft=5,
+        noDir=6
     }
     /// <summary>
     /// This is the main type for your game.
     /// </summary>
     public class Game1 : Game
     {
+        Thread s;
+        Thread r;
         int screenOffset = 0;
         int packetID = 0;
         int curScroll = 0;
         int prevScroll = 0;
         Dictionary<string, gameplayPacket> acknowledging;
-        Dictionary<string,gameplayPacket> unacknowledged;
+        List<gameplayPacket> unacknowledged;
         Dictionary<string, gameplayPacket> total;
         matchMakingPacket relevant;
         string clientId;
@@ -45,30 +48,41 @@ namespace Discus
         public bool online;
         public int actions;
         public bool ballFlying;
+        public ballDir flightDir;
         public bool networkLeftClick;
         public bool networkRightClick;
-        public Team whosTurn;
+        public Team whosTurn;//whos turn is it
         public Team playerTeam;
         public Team enemyTeam;
         public Team cyborgThrow;
+        public SpriteFont font;
         public string action;
         public Hex actionHex;
-        public List<Hex> abilityHexes;
-        public List<Hex> movementHexes;
-        public ButtonState prevLeftMouseState;
-        public ButtonState prevRightMouseState;
+        public List<Hex> abilityHexes;//hexes to use for special interactions
+        public List<Hex> movementHexes;//hexes to use for movement
+        public ButtonState prevLeftMouseState;//input
+        public ButtonState prevRightMouseState;//input
         public int enemyHoveredRow;
         public int enemyHoveredCol;
         public int hoveredRow;
         public int hoveredCol;
-        public Hex enemyHoveredSpace;
-        public Hex hoveredSpace;
+        public int currentCommand;//the current command
+        public Hex enemyHoveredSpace;//the enemy's currently hovered hex 
+        public Hex hoveredSpace;//the currently hovered hex
         public List<Hex> boardLocations;
+        public Hex ballHex;//the last place the ball was 
+        Texture2D ball;
+        Texture2D brute;
+        Texture2D cyborg;
+        Texture2D cursor;
+        Texture2D interceptor;
         Texture2D enemycursor;
+        Texture2D abilityOverlay;
         Texture2D hex;
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
-        gameplayPacket newest;
+        gameplayPacket previousPacket;
+        gameplayPacket newestPacket;
         public Game1()
         {
             graphics = new GraphicsDeviceManager(this);
@@ -83,7 +97,9 @@ namespace Discus
         /// </summary>
         protected override void Initialize()
         {
-            newest = new gameplayPacket();
+            whosTurn = Team.Red;
+            flightDir = ballDir.up;
+            newestPacket = new gameplayPacket();
             // TODO: Add your initialization logic here
             found = false;
             matchmaking = true;
@@ -112,18 +128,185 @@ namespace Discus
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
+            font = Content.Load<SpriteFont>("font");
             hex = Content.Load<Texture2D>("hex");
+            interceptor = Content.Load<Texture2D>("interceptor");
             enemycursor = Content.Load<Texture2D>("movementhexoverlay");
+            abilityOverlay = Content.Load<Texture2D>("abilityOverlay");
+            cursor = Content.Load<Texture2D>("cursor");
+            brute = Content.Load<Texture2D>("brute");
+            cyborg = Content.Load<Texture2D>("cyborg");
+            ball = Content.Load<Texture2D>("ball");
             boardLocations = new List<Hex>();
-            for (int y = 0; y < 25; y++)
+            for (int y = 0; y < 27; y++)
             {
                 for (int x = 0; x < 17; x++)
                 {
+                    //skips
+                    if (y == 26 && x % 2 == 1)
+                    {
+                        continue;
+                    }
+                    //red side
+                    //left
+                    if (y == 26 && x == 1)
+                    {
+                        continue;
+                    }
+                    if (y == 26 && x == 3)
+                    {
+                        continue;
+                    }
+                    if (y == 25 && x == 1)
+                    {
+                        continue;
+                    }
+                    if (y == 26 && x == 2)
+                    {
+                        continue;
+                    }
+                    if (y == 26 && x == 0)
+                    {
+                        continue;
+                    }
+                    if (y == 25 && x == 0)
+                    {
+                        continue;
+                    }
+                    //right
+                    if (y == 26 && x == 15)
+                    {
+                        continue;
+                    }
+                    if (y == 26 && x == 13)
+                    {
+                        continue;
+                    }
+                    if (y == 25 && x == 15)
+                    {
+                        continue;
+                    }
+                    if (y == 26 && x == 14)
+                    {
+                        continue;
+                    }
+                    if (y == 26 && x == 16)
+                    {
+                        continue;
+                    }
+                    if (y == 25 && x == 16)
+                    {
+                        continue;
+                    }
+                    //blue side
+                    if (x == 0 && y == 0)
+                    {
+                        continue;
+                    }
+                    if (x == 0 && y == 1)
+                    {
+                        continue;
+                    }
+                    if (x == 1 && y == 0)
+                    {
+                        continue;
+                    }
+                    if (x == 2 && y == 0)
+                    {
+                        continue;
+                    }
+                    if (x == 16 && y == 0)
+                    {
+                        continue;
+                    }
+                    if (x == 16 && y == 1)
+                    {
+                        continue;
+                    }
+                    if (x == 15 && y == 0)
+                    {
+                        continue;
+                    }
+                    if (x == 14 && y == 0)
+                    {
+                        continue;
+                    }
                     Vector2 location = Hex.HexToPoints(hex.Width * .15f, y, x);
                     boardLocations.Add(new Hex(location + new Vector2(hex.Width * .075f, 0), y, x));
+                    
+                    //blue side
+                    if (x == 2 && y == 5)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Brute(Team.Blue);
+                    }
+                    if (y == 13 && x == 8)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Ball(Team.Neutral);
+                    }
+                    if (x == 14 && y == 5)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Brute(Team.Blue);
+                    }
+                    if (x == 8 && y == 4)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Brute(Team.Blue);
+                    }
+                    if (x == 8 && y == 9)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Interceptor(Team.Blue);
+                    }
+                    if (x == 11 && y == 10)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Interceptor(Team.Blue);
+                    }
+                    if (x == 5 && y == 10)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Interceptor(Team.Blue);
+                    }
+                    if (x == 1 && y == 10)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Cyborg(Team.Blue);
+                    }
+                    if (x == 15 && y == 10)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Cyborg(Team.Blue);
+                    }
+                    //red side
+                    if (x == 2 && y == 21)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Brute(Team.Red);
+                    }
+                    if (x == 14 && y == 21)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Brute(Team.Red);
+                    }
+                    if (x == 8 && y == 22)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Brute(Team.Red);
+                    }
+                    if (x == 8 && y == 19)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Interceptor(Team.Red);
+                    }
+                    if (x == 11 && y == 15)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Interceptor(Team.Red);
+                    }
+                    if (x == 5 && y == 15)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Interceptor(Team.Red);
+                    }
+                    if (x == 1 && y == 15)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Cyborg(Team.Red);
+                    }
+                    if (x == 15 && y == 15)
+                    {
+                        boardLocations[boardLocations.Count - 1].piece = new Cyborg(Team.Red);
+                    }
                 }
             }
-            for (int i = 0; i < 20; i++)
+            for (int i = 0; i < boardLocations.Count; i++)
             {
                 boardLocations[i].PopulateNeighbors(boardLocations);
             }
@@ -142,266 +325,182 @@ namespace Discus
         }
         void StartNetworking()
         {
+            //the relevant matchmaking packet
             relevant = new matchMakingPacket();
 
             listener = new Socket(SocketType.Dgram, ProtocolType.Udp);
 
             listener.Bind(MainEndPoint);
             acknowledging = new Dictionary<string, gameplayPacket>();
-            unacknowledged = new Dictionary<string, gameplayPacket>();
+            unacknowledged = new List<gameplayPacket>();
             total = new Dictionary<string, gameplayPacket>();
             relevant.ip = MainEndPoint.Address.GetAddressBytes();
             relevant.port = MainEndPoint.Port;
             sender = new Socket(SocketType.Dgram, ProtocolType.Udp);
 
 
-            Thread r = new Thread(() => {
+            r = new Thread(() => {
                 Recieve(listener);
             });
             r.Start();
-            Thread s = new Thread(() => {
+            s = new Thread(() => {
                 Send(sender);
             });
             s.Start();
 
         }
+        public void resolveCommand(int cmd)
+        {
+            switch (cmd)
+            {
+                case 1:
+
+                    if (ballFlying)
+                    {
+                        BoardGameHelpers.moveBall(ballHex, flightDir);
+                    }
+                        if (whosTurn == Team.Red)
+                        {
+                            whosTurn = Team.Blue;
+                        }
+                        else
+                        {
+                            whosTurn = Team.Red;
+                        }
+                    
+                    break;
+                default:
+                    break;
+            }
+        }
         void Send(Socket s)
         {
-            
-            Thread pulseUnacknowledged = new Thread(() => {
-                while (true)
+            Thread.Sleep(1000/30);
+            while (true)
+            {
+                if (found)//we have a match
                 {
-                    Thread.Sleep(40);
-                    lock (unacknowledged)
+                    lock (unacknowledged)//send out our unacknowledged packets
                     {
                         if (unacknowledged.Count > 0)
                         {
-                            packetCluster pcl = new packetCluster();
-                            pcl.acknowledged = false;
-                            pcl.cluster = new List<gameplayPacket>();
-                            int i = 0;
-                            foreach (string item in unacknowledged.Keys)
-                            {
-                                if (pcl.arbiterId == null)
-                                {
-                                    pcl.arbiterId = unacknowledged[item].arbiterId;
-                                }
-                                i++;
-                               
-                                pcl.cluster.Add(unacknowledged[item]);
-                            }
 
                             BinaryFormatter bf = new BinaryFormatter();
                             MemoryStream m = new MemoryStream();
-                            bf.Serialize(m, pcl);
-                            if (i >= 10)
-                            {
-                                bf = new BinaryFormatter();
-                                m = new MemoryStream();
-                                List<packetCluster> toSend = new List<packetCluster>();
+                            bf.Serialize(m, unacknowledged[0]);
 
-                                for (int j = 0; j < i; j+=10)
-                                {
-                                    packetCluster tempPcl = new packetCluster();
-                                    tempPcl.acknowledged = pcl.acknowledged;
-                                    tempPcl.arbiterId = pcl.arbiterId;
-                                    tempPcl.cluster = new List<gameplayPacket>();
-                                    for (int k = 0;k<10;k++)
-                                    {
-                                        if (pcl.cluster.Count > (k + j))
-                                        {
-                                            tempPcl.cluster.Add(pcl.cluster[k + j]);
-                                        }
-                                        else {
-                                            break;
-                                        }
-                                        
-                                    }
-                                    m = new MemoryStream();
-                                    bf.Serialize(m, tempPcl);
-                                    lock (sender)
-                                    {
-                                        sender.SendTo(m.GetBuffer(), OpponentEndPoint);
-                                    }
-                                    Thread.Sleep(5);
-                                }
-                            }
-                            else
+                            lock (sender)
                             {
-                                lock (sender)
-                                {
-                                    sender.SendTo(m.GetBuffer(), OpponentEndPoint);
-                                }
+                                sender.SendTo(m.GetBuffer(), OpponentEndPoint);
                             }
-                            
+
                         }
                     }
-                }
-
-            });
-            Thread pulseAcknowledging = new Thread(() => {
-                while (true)
-                {
-                    Thread.Sleep(40);
-                    lock (acknowledging)
+                    lock (acknowledging)//send out packets from the opponent that we have acknowledged
                     {
                         if (acknowledging.Count > 0)
                         {
                             packetCluster pcl = new packetCluster();
                             pcl.acknowledged = true;
                             pcl.cluster = new List<gameplayPacket>();
-                            int i = 0;
+                            
                             foreach (string item in acknowledging.Keys)
                             {
-                                if (pcl.arbiterId == null)
-                                {
-                                    pcl.arbiterId = acknowledging[item].arbiterId;
-                                }
-                                i++;
 
-                                pcl.cluster.Add(acknowledging[item]);
-                            }
+                                BinaryFormatter bf = new BinaryFormatter();
+                                MemoryStream m = new MemoryStream();
+                                bf.Serialize(m, acknowledging[item]);
 
-                            BinaryFormatter bf = new BinaryFormatter();
-                            MemoryStream m = new MemoryStream();
-                            bf.Serialize(m, pcl);
-                            if (i >= 10)
-                            {
-                                bf = new BinaryFormatter();
-                                m = new MemoryStream();
-                                List<packetCluster> toSend = new List<packetCluster>();
-
-                                for (int j = 0; j < i; j += 10)
-                                {
-                                    packetCluster tempPcl = new packetCluster();
-                                    tempPcl.acknowledged = pcl.acknowledged;
-                                    tempPcl.arbiterId = pcl.arbiterId;
-                                    tempPcl.cluster = new List<gameplayPacket>();
-                                    for (int k = 0; k < 10; k++)
-                                    {
-                                        if (pcl.cluster.Count > (k + j))
-                                        {
-                                            tempPcl.cluster.Add(pcl.cluster[k + j]);
-                                        }
-                                        else
-                                        {
-                                            break;
-                                        }
-
-                                    }
-                                    m = new MemoryStream();
-                                    bf.Serialize(m, tempPcl);
-                                    lock (sender)
-                                    {
-                                        sender.SendTo(m.GetBuffer(), OpponentEndPoint);
-                                    }
-                                    Thread.Sleep(5);
-                                }
-                            }
-                            else
-                            {
                                 lock (sender)
                                 {
                                     sender.SendTo(m.GetBuffer(), OpponentEndPoint);
                                 }
+                                break;
                             }
+                           
 
                         }
+
                     }
-                }
-
-            });
-            pulseAcknowledging.Start();
-            pulseUnacknowledged.Start();
-            while (true)
-            {
-               
-                
-                if (found)
-                {
-                    Thread.Sleep(1000 / 60);
-
-
-                    networkLeftClick = newest.leftClick;
-                    networkRightClick = newest.rightClick;
-                    enemyHoveredCol = newest.col;
-                    enemyHoveredRow = newest.row;
-                    networkLeftClick = newest.leftClick;
-                    networkRightClick = newest.rightClick;
-                    MemoryStream temp = new MemoryStream();
-                    EndPoint ep = OpponentEndPoint;
-                    gameplayPacket latest = new gameplayPacket();
-                    latest.col = hoveredCol;
-                    latest.row = hoveredRow;
-                    latest.rightClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
-                    latest.leftClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
-                    latest.arbiterId = clientId;
-                    int i = 0; 
-                    while (total.ContainsKey(packetID.ToString()))
-                    {
-                        packetID= (packetID+1)%9999;
-                        i++;
-                        if (i > 9999)
+                   
+                        networkLeftClick = newestPacket.leftClick;
+                        networkRightClick = newestPacket.rightClick;
+                        enemyHoveredCol = newestPacket.col;
+                        enemyHoveredRow = newestPacket.row;
+                        networkLeftClick = newestPacket.leftClick;
+                        networkRightClick = newestPacket.rightClick;
+                        MemoryStream temp = new MemoryStream();
+                        EndPoint ep = OpponentEndPoint;
+                        gameplayPacket latest = new gameplayPacket();
+                        latest.col = hoveredCol;
+                        latest.row = hoveredRow;
+                        latest.rightClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
+                        latest.leftClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
+                        latest.arbiterId = clientId;
+                        int i = 0;
+                        while (total.ContainsKey(packetID.ToString()))
                         {
-                            total = new Dictionary<string, gameplayPacket>();//this is very sloppy but should be ok???????????
-                            packetID = 0;
+                            packetID = (packetID + 1) % 9999;
+                            i++;
+                            if (i > 9999)
+                            {
+                                total = new Dictionary<string, gameplayPacket>();//this is very sloppy but should be ok???????????
+                                packetID = 0;
+                            }
                         }
-                    }
-                    latest.id = clientId + packetID;
-                    
-                    
+                        latest.id = clientId + packetID;
+
+                    latest.activeCommand = currentCommand;
+                    resolveCommand(currentCommand);
+                    currentCommand = 0;
                         lock (unacknowledged)
                         {
-                        string[] keys = new string[unacknowledged.Count] ;
-                        unacknowledged.Keys.CopyTo(keys,0);
-                        if (unacknowledged.Keys.Count > 0)
-                        {
-                            if (latest.leftClick != unacknowledged[keys[unacknowledged.Count - 1]].leftClick
-                                ||
-                                latest.rightClick != unacknowledged[keys[unacknowledged.Count - 1]].rightClick
-                                ||
-                                latest.row != unacknowledged[keys[unacknowledged.Count - 1]].row
-                                ||
-                                latest.col != unacknowledged[keys[unacknowledged.Count - 1]].col)
+                            string[] keys = new string[unacknowledged.Count];
+
+                            if (unacknowledged.Count > 0)
+                            {
+                                if (latest.leftClick != unacknowledged[unacknowledged.Count - 1].leftClick
+                                    ||
+                                    latest.rightClick != unacknowledged[unacknowledged.Count - 1].rightClick
+                                    ||
+                                    latest.row != unacknowledged[unacknowledged.Count - 1].row
+                                    ||
+                                    latest.col != unacknowledged[unacknowledged.Count - 1].col
+                                    ||
+                                    latest.activeCommand != unacknowledged[unacknowledged.Count - 1].activeCommand)//if this frame is different than the last one we 
+                                {
+                                    lock (total)
+                                    {
+                                        latest.acknowledged = false;
+                                        unacknowledged.Add(latest);
+                                        total.Add(packetID.ToString(), latest);
+
+
+                                    }
+                                }
+                            }
+                            else
                             {
                                 lock (total)
                                 {
                                     latest.acknowledged = false;
-                                    unacknowledged.Add(packetID.ToString(), latest);
+                                    unacknowledged.Add(latest);
                                     total.Add(packetID.ToString(), latest);
+
+
                                 }
                             }
                         }
-                        else
-                        {
-                            lock (total)
-                            {
-                                latest.acknowledged = false;
-                                unacknowledged.Add(packetID.ToString(), latest);
-                                total.Add(packetID.ToString(), latest);
-                            }
-                        }
-                        }
-                    
-                    
-                    
-                    BinaryFormatter bf = new BinaryFormatter();
-                    temp = new MemoryStream();
-                    bf.Serialize(temp, latest);
-                    lock (sender)
-                    {
-                        
-                        //sender.SendTo(temp.GetBuffer(), ep);
-                    }
+
                     
                 }
-                else if (matchmaking)
+                else if (matchmaking)//we are looking for a match
                 {
                     MemoryStream temp = new MemoryStream();
                     EndPoint ep = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 57735);
                     matchMakingPacket latest = new matchMakingPacket();
                     latest.acknowledged = false;
-                    latest.ip =new byte[]{ ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[12],((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[13],((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[14],((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[15]};
+                    latest.ip = new byte[] { ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[12], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[13], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[14], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[15] };
                     latest.port = ((IPEndPoint)listener.LocalEndPoint).Port;
                     BinaryFormatter bf = new BinaryFormatter();
                     bf.Serialize(temp, latest);
@@ -410,22 +509,14 @@ namespace Discus
                         sender.SendTo(temp.GetBuffer(), ep);
                     }
                     Thread.Sleep(2000);
-                    
                 }
-                else
-                {
-                    //nicks code will go here someday i think
-                }
-
             }
         }
         void Recieve(Socket s)
         {
-
-
             while (true)
             {
-                if (matchmaking)
+                if (matchmaking)//look for match
                 {
                     byte[] buffer = new byte[1024];
 
@@ -435,19 +526,29 @@ namespace Discus
                     BinaryFormatter binaryFormatter = new BinaryFormatter();
                     var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
                     if (latest is matchMakingPacket)
-                    {
+                    {//when we hear back start matchmaking
                         matchMakingPacket mm = (matchMakingPacket)latest;
                         sender.SendTo(buffer, OpponentEndPoint);
                         OpponentEndPoint = new IPEndPoint(new IPAddress(mm.ip), mm.port);
                         clientId = mm.clientID;
                         enemyId = mm.enemyID;
                         playerTeam = (Discus.Team)mm.color;
+                        if (playerTeam == Team.Red)
+                        {
+                            enemyTeam = Team.Blue;
+                        }
+                        else
+                        {
+                            enemyTeam = Team.Red;
+                        }
+                        whosTurn = Team.Red;
                         found = true;
                         matchmaking = false;
                         Thread.Sleep(3000);
                     }
                     else
                     {
+                        whosTurn = Team.Red;
                         found = true;
                         matchmaking = false;
                     }
@@ -484,23 +585,23 @@ namespace Discus
                                 {
                                     lock (acknowledging)
                                     {
-                                        acknowledging.Remove(gpp.id.Substring(clientId.Length));
+                                        acknowledging.Remove(gpp.id.Substring(enemyId.Length));
                                     }
 
-                                    lock (sender)
-                                    {
-                                        sender.SendTo(buffer, OpponentEndPoint);
-                                    }
+                                   
                                 }
                                 else
                                 {
                                     
                                     lock (acknowledging)
                                     {
-                                        if (!acknowledging.ContainsKey(gpp.id.Substring(clientId.Length)))
-                                        {
+                                    string key = gpp.id.Substring(enemyId.Length);
+                                        if (!acknowledging.ContainsKey(key))
+                                        {//acknowledge the packet
+                                        resolveCommand(gpp.activeCommand);
                                         gpp.acknowledged = true;
-                                        newest = gpp;
+                                        previousPacket = newestPacket;
+                                        newestPacket = gpp;
                                         networkLeftClick = gpp.leftClick;
                                         networkRightClick = gpp.rightClick;
                                         enemyHoveredCol = gpp.col;
@@ -509,28 +610,32 @@ namespace Discus
                                         networkRightClick = gpp.rightClick;
                                         acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
                                         }
-                                        else
-                                        {
-                                            acknowledging[gpp.id.Substring(clientId.Length)] = gpp;
-                                        }
+                                        
                                     }
                                 }
                             }
                             else if (gpp.arbiterId == clientId)
                             {
-                                if (gpp.acknowledged)
+                               
+                            if (gpp.acknowledged)
                                 {
-                                    lock (sender)
-                                    {
-                                        sender.SendTo(buffer, OpponentEndPoint);
-                                    }
+                                lock (sender)
+                                {
+
+                                    sender.SendTo(buffer, OpponentEndPoint);
+
+                                }
+                                if (unacknowledged.Count > 0)
+                                {
                                     lock (unacknowledged)
                                     {
-                                        if (unacknowledged.ContainsKey(gpp.id.Substring(clientId.Length)))
+                                        if (unacknowledged[0].id == gpp.id)
                                         {
-                                            unacknowledged.Remove(gpp.id.Substring(clientId.Length));
+                                            unacknowledged.RemoveAt(0);
                                         }
                                     }
+                                }
+                               
                                 }
                                 else
                                 {
@@ -547,11 +652,11 @@ namespace Discus
                                 {
                                     for (int i = 0; i < pcl.cluster.Count; i++)
                                     {
-                                        lock (unacknowledged)
+                                    lock (unacknowledged)
                                         {
-                                            if (unacknowledged.ContainsKey(pcl.cluster[i].id.Substring(clientId.Length)))
+                                            if (unacknowledged[0] == pcl.cluster[i])
                                             {
-                                                unacknowledged.Remove(pcl.cluster[i].id.Substring(clientId.Length));
+                                            unacknowledged.RemoveAt(0);
                                             }
                                         }
                                     }
@@ -599,22 +704,22 @@ namespace Discus
                                             gameplayPacket gpp = pcl.cluster[i];
                                             if (!acknowledging.ContainsKey(gpp.id.Substring(clientId.Length)))
                                             {
-                                                acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
+                                                
                                                
                                                 gpp.acknowledged = true;
-                                                newest = gpp;
+                                                newestPacket = gpp;
                                                 networkLeftClick = gpp.leftClick;
                                                 networkRightClick = gpp.rightClick;
                                                 enemyHoveredCol = gpp.col;
                                                 enemyHoveredRow = gpp.row;
                                                 networkLeftClick = gpp.leftClick;
                                                 networkRightClick = gpp.rightClick;
-                                                Thread.Sleep((1000 / 10));
+                                            acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
+                                            Thread.Sleep((1000 / 10));
                                             }
                                             else
                                             {
                                                 acknowledging[gpp.id.Substring(clientId.Length)] = gpp;
-                                                
                                             }
                                         }
                                         
@@ -634,9 +739,13 @@ namespace Discus
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
+            
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
             {
+                s.Abort();
+                r.Abort();
                 listener.Close();
+                sender.Close();
                 Exit();
             }
             curScroll = Mouse.GetState().ScrollWheelValue;
@@ -662,174 +771,456 @@ namespace Discus
                     enemyHoveredSpace = boardLocations[i];
                 }
             }
-            prevLeftMouseState = Mouse.GetState().LeftButton;
-            prevRightMouseState = Mouse.GetState().RightButton;
-            // TODO: Add your update logic here
-            //MainSceneLogic
-            /*if (whosTurn == playerTeam||online == false)
-            {
-               
-            }
-            else
-            {
-                //network input sending/recieving
-            }
+            //start gamelogic here
             
-            //click on piece
-            if (Mouse.GetState().LeftButton == ButtonState.Released && prevLeftMouseState == ButtonState.Pressed && action == "")
+           
+            if (Keyboard.GetState().IsKeyDown(Keys.E)&&whosTurn == playerTeam&&currentCommand == 0)//click end button
             {
-                if (hoveredSpace.piece is Brute && hoveredSpace.piece.team == whosTurn)
+                if (ballFlying && cyborgThrow == whosTurn)
                 {
-                    actionHex = hoveredSpace;
-                    action = "brute";
-                    if (actionHex.piece.hasAbility)
+                    abilityHexes = new List<Hex>();
+                    movementHexes = new List<Hex>();
+                    action = "curvedisc";
+                    actionHex = ballHex;
+                    switch (flightDir)
                     {
-                        #region add all adjacent spaces to ability hexes
-                        abilityHexes.Add(actionHex.upLeftNeighbor);
-                        abilityHexes.Add(actionHex.upNeighbor);
-                        abilityHexes.Add(actionHex.upRightNeighbor);
-                        abilityHexes.Add(actionHex.downLeftNeighbor);
-                        abilityHexes.Add(actionHex.downNeighbor);
-                        abilityHexes.Add(actionHex.downRightNeighbor);
-                        #endregion
+                        case ballDir.upLeft:
+                            abilityHexes.Add(actionHex.upLeftNeighbor);
+                            abilityHexes.Add(actionHex.upNeighbor);
+                            abilityHexes.Add(actionHex.downLeftNeighbor);
+                            break;
+                        case ballDir.up:
+                            abilityHexes.Add(actionHex.upNeighbor);
+                            abilityHexes.Add(actionHex.upLeftNeighbor);
+                            abilityHexes.Add(actionHex.upRightNeighbor);
+                            break;
+                        case ballDir.upRight:
+                            abilityHexes.Add(actionHex.upNeighbor);
+                            abilityHexes.Add(actionHex.downRightNeighbor);
+                            abilityHexes.Add(actionHex.upRightNeighbor);
+                            break;
+                        case ballDir.downRight:
+                            abilityHexes.Add(actionHex.downNeighbor);
+                            abilityHexes.Add(actionHex.downRightNeighbor);
+                            abilityHexes.Add(actionHex.upRightNeighbor);
+                            break;
+                        case ballDir.down:
+                            abilityHexes.Add(actionHex.downNeighbor);
+                            abilityHexes.Add(actionHex.downRightNeighbor);
+                            abilityHexes.Add(actionHex.downLeftNeighbor);
+                            break;
+                        case ballDir.downLeft:
+                            abilityHexes.Add(actionHex.downNeighbor);
+                            abilityHexes.Add(actionHex.upLeftNeighbor);
+                            abilityHexes.Add(actionHex.downLeftNeighbor);
+                            break;
+                        case ballDir.noDir:
+                            break;
+                        default:
+                            break;
                     }
-                    movementHexes = actionHex.getMoveArea(1);
                 }
-                else if (hoveredSpace.piece is Interceptor && hoveredSpace.piece.team == whosTurn)
+                else
                 {
-                    actionHex = hoveredSpace;
-                    action = "interceptor";
-                    #region add interceptor ability hexes
-                    abilityHexes.Add(actionHex.upLeftNeighbor.upLeftNeighbor);
-                    abilityHexes.Add(actionHex.upNeighbor.upNeighbor);
-                    abilityHexes.Add(actionHex.upRightNeighbor.upRightNeighbor);
-                    abilityHexes.Add(actionHex.downLeftNeighbor.downLeftNeighbor);
-                    abilityHexes.Add(actionHex.downNeighbor.downNeighbor);
-                    abilityHexes.Add(actionHex.downRightNeighbor.downRightNeighbor);
-                    #endregion
-                    movementHexes = actionHex.getMoveArea(4);
-
+                    currentCommand = 1;   
                 }
-                else if (hoveredSpace.piece is Cyborg && hoveredSpace.piece.team == whosTurn)
-                {
-                    actionHex = hoveredSpace;
-                    action = "cyborg";
-                    movementHexes = actionHex.getMoveArea(3);
-
-                }
-                else if (hoveredSpace.piece is Ball && ((Ball)(hoveredSpace.piece)).owner.team == whosTurn)
-                {
-                    actionHex = hoveredSpace;
-                    action = "ballThrow";
-                    #region add all adjacent spaces to ability hexes
-                    abilityHexes.Add(actionHex.upLeftNeighbor);
-                    abilityHexes.Add(actionHex.upNeighbor);
-                    abilityHexes.Add(actionHex.upRightNeighbor);
-                    abilityHexes.Add(actionHex.downLeftNeighbor);
-                    abilityHexes.Add(actionHex.downNeighbor);
-                    abilityHexes.Add(actionHex.downRightNeighbor);
-                    #endregion
-                }
+                
             }
-            else if (Mouse.GetState().LeftButton == ButtonState.Released && prevLeftMouseState == ButtonState.Pressed && action == "brute")
-            {
-                if (actions >= 1 &&actionHex.piece.canMove)
-                {
-                    actions--;
-                    BoardGameHelpers.tryMovePiece(hoveredSpace);
-                }
-                actionHex = null;
-                movementHexes = new List<Hex>();
-                abilityHexes = new List<Hex>();
-            }
-            else if (Mouse.GetState().RightButton == ButtonState.Released && prevRightMouseState == ButtonState.Pressed && action == "brute")
-            {
-                //brute ability
-                if (abilityHexes.Contains(hoveredSpace)&&actionHex.piece.hasAbility)
-                {
-                    actionHex.piece.hasAbility = false;
-                    for (int i = 0; i < abilityHexes.Count; i++)
-                    {
-                        if (abilityHexes[i].piece.team != actionHex.piece.team)
+            if (action == "")
+            {//no selected action
+                if (whosTurn == playerTeam)
+                {//its the clients turn
+                    if (hoveredSpace.piece != null)//we are hovering a piece
+                        if (hoveredSpace.piece.team == playerTeam && prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed)//click on a friendly piece
                         {
-                            abilityHexes[i].piece = null;
+                            Piece temp = hoveredSpace.piece;//save our piece as a temp
+                            actionHex = hoveredSpace;//save our hovered space as the action hex
+
+                            if (temp is Interceptor)
+                            {
+                                action = "move";
+                                if (ballFlying)
+                                {//interceptor passive
+                                    movementHexes = actionHex.getMoveAreaInterceptor(4, flightDir);
+                                }
+                                else
+                                {//regular movement prep
+                                    movementHexes = actionHex.getMoveArea(4);
+                                }
+                            }
+                            else if (temp is Brute)
+                            {//regular movement prep
+                                movementHexes = actionHex.getMoveArea(2);
+                                action = "move";
+                            }
+                            else if (temp is Cyborg)
+                            {//regular movement prep
+                                movementHexes = actionHex.getMoveArea(3);
+                                action = "move";
+                            }
+                            if (temp is Ball)
+                            {//prompt moveball bc we are trying to throw the ball
+                                movementHexes = new List<Hex>();
+                                actionHex = ((Ball)temp).ownerSpace;
+                                hoveredSpace.piece = null;
+                                abilityHexes = actionHex.getMoveArea(1);
+                                action = "moveball";
+                            }
+                        }
+                }
+                else
+                {
+                    if (enemyHoveredSpace != null)  
+                        if (enemyHoveredSpace.piece != null && newestPacket.leftClick && !previousPacket.leftClick)
+                        {
+                            if (enemyHoveredSpace.piece.team == enemyTeam)//enemy side - see above comments
+                            {
+
+                                Piece temp = enemyHoveredSpace.piece;
+                                actionHex = enemyHoveredSpace;
+
+                                if (temp is Interceptor)
+                                {
+                                    action = "move";
+                                    if (ballFlying)
+                                    {
+                                        movementHexes = actionHex.getMoveAreaInterceptor(4, flightDir);
+                                    }
+                                    else
+                                    {
+                                        movementHexes = actionHex.getMoveArea(4);
+                                    }
+                                }
+                                else if (temp is Brute)
+                                {
+                                    movementHexes = actionHex.getMoveArea(2);
+                                    action = "move";
+                                }
+                                else if (temp is Cyborg)
+                                {
+                                    movementHexes = actionHex.getMoveArea(3);
+                                    action = "move";
+                                }
+                                if (temp is Ball)
+                                {
+                                    movementHexes = new List<Hex>();
+                                    actionHex = ((Ball)temp).ownerSpace;
+                                    enemyHoveredSpace.piece = null;
+                                    abilityHexes = actionHex.getMoveArea(1);
+                                    action = "moveball";
+
+                                }
+                            }
+                        }
+
+                }
+            }
+            else if (action == "move")
+            {//trying to move a piece
+             //movementhexes contains your valid positions
+                if (whosTurn == playerTeam)
+                {//clients turn
+                    if (hoveredSpace.piece == null && prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed && movementHexes.Contains(hoveredSpace))
+                    {//no one is there so move
+                        movementHexes = new List<Hex>();
+                        Piece temp = actionHex.piece;
+                        action = "";
+                        hoveredSpace.piece = temp;
+                        actionHex.piece = null;
+                    }
+                    else if (hoveredSpace.piece is Ball && prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed && movementHexes.Contains(hoveredSpace))
+                    {//a ball is there so grab it
+                        movementHexes = new List<Hex>();
+                        Piece temp = actionHex.piece;
+                        ballPlaceTeam = whosTurn;
+                        action = "placeball";//prompt ball placement
+                        hoveredSpace.piece = temp;
+                        actionHex.piece = null;
+                        actionHex = hoveredSpace;
+                        abilityHexes = actionHex.GetNeighbors();
+                    }
+                }
+                if (!previousPacket.leftClick && newestPacket.leftClick)
+                {
+                    //enemy side see above comments
+                    if (movementHexes.Contains(enemyHoveredSpace))
+                    {
+                        if (enemyHoveredSpace.piece == null)
+                        {
+                            
+                            movementHexes = new List<Hex>();
+                            Piece temp = actionHex.piece;
+                            action = "";
+                            enemyHoveredSpace.piece = temp;
+                            actionHex.piece = null;
+                        }
+                        else if (enemyHoveredSpace.piece is Ball)
+                        {
+                            movementHexes = new List<Hex>();
+                            Piece temp = actionHex.piece;
+                            ballPlaceTeam = whosTurn;
+                            action = "placeball";
+                            enemyHoveredSpace.piece = temp;
+                            actionHex.piece = null;
+                            actionHex = enemyHoveredSpace;
+                            abilityHexes = actionHex.GetNeighbors();
                         }
                     }
                 }
-                action = "";
-                actionHex = null;
-                movementHexes = new List<Hex>();
-                abilityHexes = new List<Hex>();
             }
-            else if (Mouse.GetState().LeftButton == ButtonState.Released && prevLeftMouseState == ButtonState.Pressed && action == "cyborg")
-            {
-                if (actions >= 1 && actionHex.piece.canMove)
+            else if (action == "placeball")
+            {//abilityhexes contains all valid ballspots
+                if (ballPlaceTeam == playerTeam)
                 {
-                    actions--;
-                    BoardGameHelpers.tryMovePiece(hoveredSpace);
-                }
-                actionHex = null;
-                movementHexes = new List<Hex>();
-                abilityHexes = new List<Hex>();
-            }
-            else if (action == "placeBall")
-            {
-                if (Mouse.GetState().LeftButton == ButtonState.Released && prevLeftMouseState == ButtonState.Pressed)
-                {
-                    if (abilityHexes.Contains(hoveredSpace))
+                    if (prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed && abilityHexes.Contains(hoveredSpace))
                     {
-                        hoveredSpace.piece = new Ball(ballPlaceTeam);
-                        ((Ball)hoveredSpace.piece).owner = actionHex.piece;
-                        action = "";
-                        movementHexes = new List<Hex>();
-                        abilityHexes = new List<Hex>();
-                        cyborgThrow = Team.Neutral;
+                        BoardGameHelpers.placeBall(hoveredSpace, new Ball(playerTeam), whosTurn);
                     }
-                }
-            }
-            else if (action == "interceptor")
-            {
-                if (Mouse.GetState().LeftButton == ButtonState.Released && prevLeftMouseState == ButtonState.Pressed)
-                {
-                    if (actions >= 1 && actionHex.piece.canMove)
-                    {
-                        actions--;
-                        BoardGameHelpers.tryMovePiece(hoveredSpace);
-                    }
-                    actionHex = null;
-                    movementHexes = new List<Hex>();
-                    abilityHexes = new List<Hex>();
-                }
-                else if (Mouse.GetState().RightButton == ButtonState.Released && prevRightMouseState == ButtonState.Pressed)
-                {
 
                 }
+                else if (!previousPacket.leftClick && newestPacket.leftClick && abilityHexes.Contains(enemyHoveredSpace))
+                {
+                    BoardGameHelpers.placeBall(enemyHoveredSpace, new Ball(enemyTeam), whosTurn);
+                }
             }
-            if (whosTurn == playerTeam||online == false)
+            else if (action == "moveball")
             {
-                prevLeftMouseState = Mouse.GetState().LeftButton;
-                prevRightMouseState = Mouse.GetState().RightButton;
+                if (whosTurn == playerTeam)
+                {
+                    if (prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed && abilityHexes.Contains(hoveredSpace))
+                    {
+                        movementHexes = new List<Hex>();
+                        
+                        BoardGameHelpers.placeBall(hoveredSpace, new Ball(Team.Neutral), whosTurn);
+                        actionHex = hoveredSpace;
+                        abilityHexes = actionHex.GetNeighbors();
+                        action = "throwball";
+                    }
+
+                }
+                else if (!previousPacket.leftClick && newestPacket.leftClick && abilityHexes.Contains(enemyHoveredSpace))
+                {
+                    movementHexes = new List<Hex>();
+                   
+                    BoardGameHelpers.placeBall(hoveredSpace, new Ball(Team.Neutral), whosTurn);
+                    actionHex = enemyHoveredSpace;
+                    abilityHexes = actionHex.GetNeighbors();
+                    action = "throwball";
+                }
             }
-            else
+            else if (action == "throwball")
             {
-                if (networkLeftClick)
+                if (whosTurn == playerTeam)
                 {
-                    prevLeftMouseState = ButtonState.Pressed;
+                    if (prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed && abilityHexes.Contains(hoveredSpace))
+                    {
+                        if (((Ball)actionHex.piece).ownerSpace.piece is Cyborg)
+                        {
+                            action = "";
+                            abilityHexes = new List<Hex>();
+                            cyborgThrow = whosTurn;
+                            ballFlying = true;
+                            flightDir = BoardGameHelpers.getDir(actionHex, hoveredSpace);
+                            BoardGameHelpers.moveBall(actionHex, flightDir);
+                        }
+                        else
+                        {
+                            action = "";
+                            abilityHexes = new List<Hex>();
+                            cyborgThrow = Team.Neutral;
+                            ballFlying = true;
+                            flightDir = BoardGameHelpers.getDir(actionHex, hoveredSpace);
+                            BoardGameHelpers.moveBall(actionHex, flightDir);
+                        }
+                    }
+
                 }
-                else
+                else if (!previousPacket.leftClick && newestPacket.leftClick && abilityHexes.Contains(enemyHoveredSpace))
                 {
-                    prevLeftMouseState = ButtonState.Released;
+                    if (((Ball)actionHex.piece).ownerSpace.piece is Cyborg)
+                    {
+                        action = "";
+                        abilityHexes = new List<Hex>();
+                        cyborgThrow = whosTurn;
+                        ballFlying = true;
+                        flightDir = BoardGameHelpers.getDir(actionHex, enemyHoveredSpace);
+                        BoardGameHelpers.moveBall(actionHex, flightDir);
+                    }
+                    else
+                    {
+                        action = "";
+                        abilityHexes = new List<Hex>();
+                        cyborgThrow = Team.Neutral;
+                        ballFlying = true;
+                        flightDir = BoardGameHelpers.getDir(actionHex, enemyHoveredSpace);
+                        BoardGameHelpers.moveBall(actionHex, flightDir);
+                    }
                 }
-                if (networkRightClick)
+            }
+            else if (action == "curveball")
+            {
+                if (whosTurn == playerTeam)
                 {
-                    prevRightMouseState = ButtonState.Pressed;
+                    if (prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed && abilityHexes.Contains(hoveredSpace))
+                    {
+                        switch (flightDir)
+                        {
+                            case ballDir.upLeft:
+                                if (hoveredSpace == actionHex.downLeftNeighbor)
+                                {
+                                    flightDir = ballDir.downLeft;
+                                }
+                                else if (hoveredSpace == actionHex.upNeighbor)
+                                {
+                                    flightDir = ballDir.up;
+                                }
+                                break;
+                            case ballDir.up:
+                                if (hoveredSpace == actionHex.upLeftNeighbor)
+                                {
+                                    flightDir = ballDir.upLeft;
+                                }
+                                else if (hoveredSpace == actionHex.upRightNeighbor)
+                                {
+                                    flightDir = ballDir.upRight;
+                                }
+                                break;
+                            case ballDir.upRight:
+                                if (hoveredSpace == actionHex.upNeighbor)
+                                {
+                                    flightDir = ballDir.up;
+                                }
+                                else if (hoveredSpace == actionHex.downRightNeighbor)
+                                {
+                                    flightDir = ballDir.downRight;
+                                }
+                                break;
+                            case ballDir.downRight:
+                                if (hoveredSpace == actionHex.upRightNeighbor)
+                                {
+                                    flightDir = ballDir.upRight;
+                                }
+                                else if (hoveredSpace == actionHex.downLeftNeighbor)
+                                {
+                                    flightDir = ballDir.downLeft;
+                                }
+                                break;
+                            case ballDir.down:
+                                if (hoveredSpace == actionHex.downLeftNeighbor)
+                                {
+                                    flightDir = ballDir.downLeft;
+                                }
+                                else if (hoveredSpace == actionHex.downRightNeighbor)
+                                {
+                                    flightDir = ballDir.downRight;
+                                }
+                                break;
+                            case ballDir.downLeft:
+                                if (hoveredSpace == actionHex.upLeftNeighbor)
+                                {
+                                    flightDir = ballDir.upLeft;
+                                }
+                                else if (hoveredSpace == actionHex.downRightNeighbor)
+                                {
+                                    flightDir = ballDir.downRight;
+                                }
+                                break;
+                            case ballDir.noDir:
+                                break;
+                            default:
+                                break;
+                        }
+                        currentCommand = 1;
+                        abilityHexes = new List<Hex>();
+                        action = "";
+                        movementHexes = new List<Hex>();
+                    }
+                    
                 }
-                else
+                else if (!previousPacket.leftClick && newestPacket.leftClick && abilityHexes.Contains(enemyHoveredSpace))
                 {
-                    prevRightMouseState = ButtonState.Released;
+                    switch (flightDir)
+                    {
+                        case ballDir.upLeft:
+                            if (enemyHoveredSpace == actionHex.downLeftNeighbor)
+                            {
+                                flightDir = ballDir.downLeft;
+                            }
+                            else if (enemyHoveredSpace == actionHex.upNeighbor)
+                            {
+                                flightDir = ballDir.up;
+                            }
+                            break;
+                        case ballDir.up:
+                            if (enemyHoveredSpace == actionHex.upLeftNeighbor)
+                            {
+                                flightDir = ballDir.upLeft;
+                            }
+                            else if (enemyHoveredSpace == actionHex.upRightNeighbor)
+                            {
+                                flightDir = ballDir.upRight;
+                            }
+                            break;
+                        case ballDir.upRight:
+                            if (enemyHoveredSpace == actionHex.upNeighbor)
+                            {
+                                flightDir = ballDir.up;
+                            }
+                            else if (enemyHoveredSpace == actionHex.downRightNeighbor)
+                            {
+                                flightDir = ballDir.downRight;
+                            }
+                            break;
+                        case ballDir.downRight:
+                            if (enemyHoveredSpace == actionHex.upRightNeighbor)
+                            {
+                                flightDir = ballDir.upRight;
+                            }
+                            else if (enemyHoveredSpace == actionHex.downLeftNeighbor)
+                            {
+                                flightDir = ballDir.downLeft;
+                            }
+                            break;
+                        case ballDir.down:
+                            if (enemyHoveredSpace == actionHex.downLeftNeighbor)
+                            {
+                                flightDir = ballDir.downLeft;
+                            }
+                            else if (enemyHoveredSpace == actionHex.downRightNeighbor)
+                            {
+                                flightDir = ballDir.downRight;
+                            }
+                            break;
+                        case ballDir.downLeft:
+                            if (enemyHoveredSpace == actionHex.upLeftNeighbor)
+                            {
+                                flightDir = ballDir.upLeft;
+                            }
+                            else if (enemyHoveredSpace == actionHex.downRightNeighbor)
+                            {
+                                flightDir = ballDir.downRight;
+                            }
+                            break;
+                        case ballDir.noDir:
+                            break;
+                        default:
+                            break;
+                    }
+                    currentCommand = 1;
+                    abilityHexes = new List<Hex>();
+                    action = "";
+                    movementHexes = new List<Hex>();
                 }
-            }*/
-            //MainSceneLogic
+            }
+            if (newestPacket.leftClick && !previousPacket.leftClick)
+            {
+                previousPacket.leftClick = true;
+            }
+            
+            prevLeftMouseState = Mouse.GetState().LeftButton;
+            prevRightMouseState = Mouse.GetState().RightButton;
+            
+           
             base.Update(gameTime);
         }
 
@@ -841,32 +1232,129 @@ namespace Discus
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
             spriteBatch.Begin();
-            foreach (Hex space in boardLocations)
-            {
-                spriteBatch.Draw(texture: hex, position: space.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2);
-            }
-            //spriteBatch.Draw(texture: hex, position: space.downNeighbor.location, scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
-
+            //boardOverlay
             if (hoveredSpace != null)
             {
-                spriteBatch.Draw(texture: hex, position: hoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
-                if (prevLeftMouseState == ButtonState.Pressed)
-                {
-                    spriteBatch.Draw(texture: enemycursor, position: hoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
-
-                }
+                spriteBatch.Draw(texture: enemycursor, position: hoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2, color: Color.White);
             }
             if (enemyHoveredSpace != null)
             {
                 if (networkLeftClick)
                 {
-                    spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
+                    spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2, color: Color.SlateGray);
 
                 }
                 else
                 {
-                    spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2);
+                    spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2, color: Color.Black);
                 }
+            }
+            //pieces
+            foreach (Hex space in boardLocations)
+            {
+                spriteBatch.Draw(texture: hex, position: space.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2);
+                spriteBatch.DrawString(font, space.gridLocation[0] + " " + space.gridLocation[1], space.location-new Vector2(60,-20-screenOffset), Color.White);
+                foreach (Hex item in movementHexes)
+                {
+                    if (space.gridLocation[0] == item.gridLocation[0] && space.gridLocation[1] == item.gridLocation[1])
+                    {
+                        spriteBatch.Draw(texture: enemycursor, position: space.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2);
+                        break;
+                    }
+                }
+
+                foreach (Hex item in abilityHexes)
+                {
+                    if (space.gridLocation[0] == item.gridLocation[0] && space.gridLocation[1] == item.gridLocation[1])
+                    {
+                        spriteBatch.Draw(texture: enemycursor, position: space.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2);
+                        break;
+                    }
+                }
+                if (space.piece != null)
+                {
+                    if (space.piece.team == Team.Red)
+                    {
+                        if (space.piece is Interceptor)
+                        {
+                            spriteBatch.Draw(texture: interceptor, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f, color: Color.Red);
+                        }
+                        if (space.piece is Ball)
+                        {
+                            spriteBatch.Draw(texture: ball, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f, color: Color.Red);
+
+                        }
+                        if (space.piece is Cyborg)
+                        {
+                            spriteBatch.Draw(texture: cyborg, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f, color: Color.Red);
+
+                        }
+                        if (space.piece is Brute)
+                        {
+                            spriteBatch.Draw(texture: brute, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f, color: Color.Red);
+
+                        }
+                    }
+                    else if(space.piece.team == Team.Blue)
+                    {
+                        if (space.piece is Interceptor)
+                        {
+                            spriteBatch.Draw(texture: interceptor, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f, color:Color.Blue);
+                        }
+                        if (space.piece is Ball)
+                        {
+                            spriteBatch.Draw(texture: ball, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f, color: Color.Blue);
+
+                        }
+                        if (space.piece is Cyborg)
+                        {
+                            spriteBatch.Draw(texture: cyborg, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f, color: Color.Blue);
+
+                        }
+                        if (space.piece is Brute)
+                        {
+                            spriteBatch.Draw(texture: brute, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2)- 1.04719755f, color: Color.Blue);
+
+                        }
+                    }
+                    else
+                    {
+                        if (space.piece is Interceptor)
+                        {
+                            spriteBatch.Draw(texture: interceptor, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f);
+                        }
+                        if (space.piece is Ball)
+                        {
+                            spriteBatch.Draw(texture: ball, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f);
+
+                        }
+                        if (space.piece is Cyborg)
+                        {
+                            spriteBatch.Draw(texture: cyborg, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f);
+
+                        }
+                        if (space.piece is Brute)
+                        {
+                            spriteBatch.Draw(texture: brute, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f);
+
+                        }
+                        if (space.piece is Ball)
+                        {
+                            spriteBatch.Draw(texture: ball, position: space.location + (new Vector2(-91, screenOffset + -30)), scale: new Vector2(.15f, .15f), rotation: (MathHelper.Pi / 2) - 1.04719755f);
+                        }
+                    }
+                }
+            }
+            //spriteBatch.Draw(texture: hex, position: space.downNeighbor.location, scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
+            //ui
+            spriteBatch.DrawString(font, action+" - current action\n"+whosTurn.ToString()+"current turn\n"+playerTeam+" - my team", Vector2.Zero, Color.White);
+            
+            //mouse
+            spriteBatch.Draw(texture: cursor, position: Mouse.GetState().Position.ToVector2() + new Vector2(-5, 60),scale: new Vector2(1f / 6f, 1f / 6f));
+
+            if (prevLeftMouseState == ButtonState.Pressed)
+            {
+                spriteBatch.Draw(texture: cursor, position: Mouse.GetState().Position.ToVector2() + new Vector2(-5, 60), scale: new Vector2(1.11f/6f, 1.11f/6f));
             }
             // TODO: Add your drawing code here
             spriteBatch.End();
