@@ -70,7 +70,9 @@ namespace Discus
         public Hex enemyHoveredSpace;//the enemy's currently hovered hex 
         public Hex hoveredSpace;//the currently hovered hex
         public List<Hex> boardLocations;
-        public Hex ballHex;//the last place the ball was 
+        public Hex ballHex;//the last place the ball was
+        bool toSendLeft;
+        bool toSendRight;
         Texture2D ball;
         Texture2D brute;
         Texture2D cyborg;
@@ -83,12 +85,46 @@ namespace Discus
         SpriteBatch spriteBatch;
         gameplayPacket previousPacket;
         gameplayPacket newestPacket;
+        public static IPAddress GetLocalIPAddress()
+        {
+            if (System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
+            {
+                var host = Dns.GetHostEntry(Dns.GetHostName());
+                foreach (var ip in host.AddressList)
+                {
+                    if (ip.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        return ip;
+                    }
+                }
+                return new IPAddress(new byte[] { 127, 0, 0, 1 });
+            }
+            return new IPAddress(new byte[] { 127, 0, 0, 1 });
+        }
         public Game1()
         {
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
         }
-
+        public static IPEndPoint GetIPEndPointFromHostName(string hostName, int port, bool throwIfMoreThanOneIP)
+        {
+            var addresses = System.Net.Dns.GetHostAddresses(hostName);
+            if (addresses.Length == 0)
+            {
+             //  throw new ArgumentException(
+             //      "Unable to retrieve address from specified host name.",
+             //      "hostName"
+             //  );
+            }
+            else if (throwIfMoreThanOneIP && addresses.Length > 1)
+            {
+             //  throw new ArgumentException(
+             //      "There is more that one IP address to the specified host.",
+             //      "hostName"
+             //  );
+            }
+            return new IPEndPoint(addresses[0], port); // Port gets validated here.
+        }
         /// <summary>
         /// Allows the game to perform any initialization it needs to before starting to run.
         /// This is where it can query for any required services and load any non-graphic
@@ -103,8 +139,8 @@ namespace Discus
             // TODO: Add your initialization logic here
             found = false;
             matchmaking = true;
-            MainEndPoint = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 0);//bind to this
-            OpponentEndPoint = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 57735);//send to this
+            MainEndPoint = new IPEndPoint(IPAddress.Any, 0);//bind to this
+            OpponentEndPoint = new IPEndPoint(new IPAddress(new byte[] { 54,208,228,240 }), 57735);//send to this
             playerTeam = Team.Blue;
             enemyTeam = Team.Red;
             cyborgThrow = Team.Neutral;
@@ -423,19 +459,21 @@ namespace Discus
 
                     }
                    
-                        networkLeftClick = newestPacket.leftClick;
-                        networkRightClick = newestPacket.rightClick;
-                        enemyHoveredCol = newestPacket.col;
-                        enemyHoveredRow = newestPacket.row;
-                        networkLeftClick = newestPacket.leftClick;
-                        networkRightClick = newestPacket.rightClick;
                         MemoryStream temp = new MemoryStream();
                         EndPoint ep = OpponentEndPoint;
                         gameplayPacket latest = new gameplayPacket();
                         latest.col = hoveredCol;
                         latest.row = hoveredRow;
-                        latest.rightClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
-                        latest.leftClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
+                        latest.rightClick = toSendRight;
+                        latest.leftClick = toSendLeft;
+                        if (toSendLeft)
+                        {
+                            toSendLeft = false;
+                        }
+                        if (toSendRight)
+                        {
+                            toSendRight = false;
+                        }
                         latest.arbiterId = clientId;
                         int i = 0;
                         while (total.ContainsKey(packetID.ToString()))
@@ -497,7 +535,7 @@ namespace Discus
                 else if (matchmaking)//we are looking for a match
                 {
                     MemoryStream temp = new MemoryStream();
-                    EndPoint ep = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 57735);
+                    EndPoint ep = new IPEndPoint(new IPAddress(new byte[] { 3,88,177,170 }), 57735);
                     matchMakingPacket latest = new matchMakingPacket();
                     latest.acknowledged = false;
                     latest.ip = new byte[] { ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[12], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[13], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[14], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[15] };
@@ -520,7 +558,7 @@ namespace Discus
                 {
                     byte[] buffer = new byte[1024];
 
-                    EndPoint enemyClient = new IPEndPoint(IPAddress.Any, 0);
+                    EndPoint enemyClient = new IPEndPoint(IPAddress.Any,0);
 
                     s.ReceiveFrom(buffer, ref enemyClient);
                     BinaryFormatter binaryFormatter = new BinaryFormatter();
@@ -528,7 +566,7 @@ namespace Discus
                     if (latest is matchMakingPacket)
                     {//when we hear back start matchmaking
                         matchMakingPacket mm = (matchMakingPacket)latest;
-                        sender.SendTo(buffer, OpponentEndPoint);
+                        sender.SendTo(buffer, new IPEndPoint(new IPAddress(new byte[] { 3, 88, 177, 170 }), 57735));
                         OpponentEndPoint = new IPEndPoint(new IPAddress(mm.ip), mm.port);
                         clientId = mm.clientID;
                         enemyId = mm.enemyID;
@@ -772,8 +810,26 @@ namespace Discus
                 }
             }
             //start gamelogic here
+            if (toSendLeft & prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed)
+            {
+                prevLeftMouseState = Mouse.GetState().LeftButton;
+            }
+            if (toSendRight & prevRightMouseState == ButtonState.Released && Mouse.GetState().RightButton == ButtonState.Pressed)
+            {
+                prevLeftMouseState = Mouse.GetState().RightButton;
+            }
             
+            if (!toSendLeft && prevLeftMouseState == ButtonState.Released)
+            {
+                toSendLeft = Mouse.GetState().LeftButton == ButtonState.Pressed;
+            }
            
+            if (!toSendRight && prevRightMouseState == ButtonState.Released)
+            {
+                toSendRight = Mouse.GetState().RightButton == ButtonState.Pressed;
+            }
+            
+
             if (Keyboard.GetState().IsKeyDown(Keys.E)&&whosTurn == playerTeam&&currentCommand == 0)//click end button
             {
                 if (ballFlying && cyborgThrow == whosTurn)
@@ -1002,7 +1058,7 @@ namespace Discus
                 {
                     movementHexes = new List<Hex>();
                    
-                    BoardGameHelpers.placeBall(hoveredSpace, new Ball(Team.Neutral), whosTurn);
+                    BoardGameHelpers.placeBall(enemyHoveredSpace, new Ball(Team.Neutral), whosTurn);
                     actionHex = enemyHoveredSpace;
                     abilityHexes = actionHex.GetNeighbors();
                     action = "throwball";
@@ -1241,7 +1297,7 @@ namespace Discus
             {
                 if (networkLeftClick)
                 {
-                    spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2, color: Color.SlateGray);
+                    spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2, color: Color.Violet);
 
                 }
                 else
@@ -1345,10 +1401,20 @@ namespace Discus
                     }
                 }
             }
+            if(actionHex!=null)
+            spriteBatch.Draw(texture: hex, position: actionHex.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2,color:Color.Violet);
             //spriteBatch.Draw(texture: hex, position: space.downNeighbor.location, scale: new Vector2(.1f, .1f), rotation: MathHelper.Pi / 2);
             //ui
-            spriteBatch.DrawString(font, action+" - current action\n"+whosTurn.ToString()+"current turn\n"+playerTeam+" - my team", Vector2.Zero, Color.White);
-            
+            spriteBatch.DrawString(font, action + " - current action\n" + whosTurn.ToString() + " current turn\n" + playerTeam + " - my team\nBall place team - " + ballPlaceTeam.ToString(), Vector2.Zero, Color.White, 0, Vector2.Zero, 2f, SpriteEffects.None, 1);
+            try
+            {
+                spriteBatch.DrawString(font, action + " - current action\n" + whosTurn.ToString() + " current turn\n" + playerTeam + " - my team\nBall place team - " + ballPlaceTeam.ToString() + "\n" + ((IPEndPoint)listener.LocalEndPoint).Address + " " + ((IPEndPoint)listener.LocalEndPoint).Port, Vector2.Zero, Color.White, 0, Vector2.Zero, 2f, SpriteEffects.None, 1);
+
+            }
+            catch (System.Exception)
+            {
+
+            }
             //mouse
             spriteBatch.Draw(texture: cursor, position: Mouse.GetState().Position.ToVector2() + new Vector2(-5, 60),scale: new Vector2(1f / 6f, 1f / 6f));
 

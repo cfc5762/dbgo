@@ -94,13 +94,14 @@ namespace Discus
             }
             else
             {//place on an empty space
-                Program.game.movementHexes = new List<Hex>();
-                Program.game.abilityHexes = new List<Hex>();
+                
                 h.piece = b;
                 ((Ball)h.piece).ownerSpace = Program.game.actionHex;
                 h.piece.team = Program.game.actionHex.piece.team;
                 Program.game.action = "";
                 Program.game.ballFlying = false;
+                Program.game.movementHexes = new List<Hex>();
+                Program.game.abilityHexes = new List<Hex>();
             }
         }
         public static void curveBall(bool curveLeft, ballDir d)
@@ -134,7 +135,7 @@ namespace Discus
             switch (direction)
             {
                 case ballDir.upLeft:
-                    for (int j = 0; j < 4; j++)
+                    for (int j = 0; j < 3; j++)
                     {
                         if (curhex.upLeftN == null)
                         {
@@ -145,14 +146,22 @@ namespace Discus
                         }
                         else if (curhex.upLeftN.piece != null && !(curhex.upLeftN.piece is Ball))
                         {
-
+                            //
+                            
+                            Program.game.action = "placeball";
                             Program.game.actionHex = curhex.upLeftN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeball";
-                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                            Program.game.abilityHexes = curhex.upLeftN.GetNeighbors();
+                            Program.game.movementHexes = new List<Hex>();
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
                             Program.game.cyborgThrow = Team.Neutral;
+                            //
+
+
+
+
+
                             break;
                         }
                         else if (curhex.upLeftN.piece != null)
@@ -180,12 +189,15 @@ namespace Discus
                         }
                         else if (curhex.upN.piece != null && !(curhex.upN.piece is Ball))
                         {
+                            
+                            Program.game.action = "placeball";
                             Program.game.actionHex = curhex.upN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
-                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                            Program.game.abilityHexes = curhex.upN.GetNeighbors();
+                            Program.game.movementHexes = new List<Hex>();
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
+                            Program.game.cyborgThrow = Team.Neutral;
                             break;
                         }
                         else if (curhex.upN.piece != null)
@@ -212,12 +224,15 @@ namespace Discus
                         }
                         else if (curhex.upRightN.piece != null && !(curhex.upRightN.piece is Ball))
                         {
+                            
+                            Program.game.action = "placeball";
                             Program.game.actionHex = curhex.upRightN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
-                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                            Program.game.abilityHexes = curhex.upRightN.GetNeighbors();
+                            Program.game.movementHexes = new List<Hex>();
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
+                            Program.game.cyborgThrow = Team.Neutral;
                             break;
                         }
                         else if (curhex.upRightN.piece != null)
@@ -243,12 +258,15 @@ namespace Discus
                         }
                         else if (curhex.downRightN.piece != null && !(curhex.downRightN.piece is Ball))
                         {
+                            
+                            Program.game.action = "placeball";
                             Program.game.actionHex = curhex.downRightN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
-                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                            Program.game.abilityHexes = curhex.downRightN.GetNeighbors();
+                            Program.game.movementHexes = new List<Hex>();
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
+                            Program.game.cyborgThrow = Team.Neutral;
                             break;
                         }
                         else if (curhex.downRightN.piece != null)
@@ -274,12 +292,15 @@ namespace Discus
                         }
                         else if (curhex.downN.piece != null && !(curhex.downN.piece is Ball))
                         {
+                            
+                            Program.game.action = "placeball";
                             Program.game.actionHex = curhex.downN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
-                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                            Program.game.abilityHexes = curhex.downN.GetNeighbors();
+                            Program.game.movementHexes = new List<Hex>();
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
+                            Program.game.cyborgThrow = Team.Neutral;
                             break;
                         }
                         else if (curhex.downN.piece != null)
@@ -305,12 +326,15 @@ namespace Discus
                         }
                         else if (curhex.downLeftN.piece != null && !(curhex.downLeftN.piece is Ball))
                         {
+                            
+                            Program.game.action = "placeball";
                             Program.game.actionHex = curhex.downLeftN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
-                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                            Program.game.abilityHexes = curhex.downLeftN.GetNeighbors();
+                            Program.game.movementHexes = new List<Hex>();
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
+                            Program.game.cyborgThrow = Team.Neutral;
                             break;
                         }
                         else if (curhex.downLeftN.piece != null)
