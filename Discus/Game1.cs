@@ -375,10 +375,7 @@ namespace Discus
             sender = new Socket(SocketType.Dgram, ProtocolType.Udp);
 
 
-            r = new Thread(() => {
-                Recieve(listener);
-            });
-            r.Start();
+           
             s = new Thread(() => {
                 Send(sender);
             });
@@ -428,7 +425,185 @@ namespace Discus
                             lock (sender)
                             {
                                 sender.SendTo(m.GetBuffer(), OpponentEndPoint);
-                            }
+                                byte[] b = new byte[1028];
+                                EndPoint Opponent = new IPEndPoint(IPAddress.Any,0);
+                                byte[] buffer = new byte[1024];
+
+                                EndPoint enemyClient = new IPEndPoint(IPAddress.Any, 0);
+
+
+                                try
+                                {
+                                    s.ReceiveFrom(buffer, ref enemyClient);
+                                }
+                                catch (System.Exception)
+                                {
+
+                                    continue;
+                                }
+
+
+
+
+                                BinaryFormatter binaryFormatter = new BinaryFormatter();
+                                var latestr = binaryFormatter.Deserialize(new MemoryStream(buffer));
+                                if (latestr is gameplayPacket)
+                                {
+                                    gameplayPacket gpp = (gameplayPacket)latestr;
+                                    if (gpp.arbiterId == enemyId)
+                                    {
+                                        if (gpp.acknowledged)
+                                        {
+                                            lock (acknowledging)
+                                            {
+                                                acknowledging.Remove(gpp.id.Substring(enemyId.Length));
+                                            }
+
+
+                                        }
+                                        else
+                                        {
+
+                                            lock (acknowledging)
+                                            {
+                                                string key = gpp.id.Substring(enemyId.Length);
+                                                if (!acknowledging.ContainsKey(key))
+                                                {//acknowledge the packet
+                                                    resolveCommand(gpp.activeCommand);
+                                                    gpp.acknowledged = true;
+                                                    previousPacket = newestPacket;
+                                                    newestPacket = gpp;
+                                                    networkLeftClick = gpp.leftClick;
+                                                    networkRightClick = gpp.rightClick;
+                                                    enemyHoveredCol = gpp.col;
+                                                    enemyHoveredRow = gpp.row;
+                                                    networkLeftClick = gpp.leftClick;
+                                                    networkRightClick = gpp.rightClick;
+                                                    acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
+                                                }
+
+                                            }
+                                        }
+                                    }
+                                    else if (gpp.arbiterId == clientId)
+                                    {
+
+                                        if (gpp.acknowledged)
+                                        {
+                                            lock (sender)
+                                            {
+
+                                                sender.SendTo(buffer, OpponentEndPoint);
+
+                                            }
+                                            if (unacknowledged.Count > 0)
+                                            {
+                                                lock (unacknowledged)
+                                                {
+                                                    if (unacknowledged[0].id == gpp.id)
+                                                    {
+                                                        unacknowledged.RemoveAt(0);
+                                                    }
+                                                }
+                                            }
+
+                                        }
+                                        else
+                                        {
+
+                                        }
+                                    }
+                                }
+                                else if (latestr is packetCluster)
+                                {
+                                    packetCluster pcl = (packetCluster)latestr;
+                                    if (pcl.arbiterId == clientId)
+                                    {
+                                        if (pcl.acknowledged)
+                                        {
+                                            for (int j = 0; j < pcl.cluster.Count; j++)
+                                            {
+                                                lock (unacknowledged)
+                                                {
+                                                    if (unacknowledged[0] == pcl.cluster[j])
+                                                    {
+                                                        unacknowledged.RemoveAt(0);
+                                                    }
+                                                }
+                                            }
+                                            pcl.acknowledged = true;
+                                            MemoryStream t = new MemoryStream();
+                                            binaryFormatter.Serialize(t, pcl);
+                                            lock (sender)
+                                            {
+                                                sender.SendTo(t.GetBuffer(), OpponentEndPoint);
+                                            }
+                                        }
+                                    }
+                                    else if (pcl.arbiterId == enemyId)
+                                    {
+                                        if (pcl.acknowledged)
+                                        {
+                                            for (int i = 0; i < pcl.cluster.Count; i++)
+                                            {
+                                                gameplayPacket gpp = pcl.cluster[i];
+                                                lock (acknowledging)
+                                                {
+                                                    acknowledging.Remove(gpp.id.Substring(clientId.Length));
+                                                }
+
+                                                lock (sender)
+                                                {
+                                                    sender.SendTo(buffer, OpponentEndPoint);
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            pcl.acknowledged = true;
+                                            MemoryStream t = new MemoryStream();
+                                            binaryFormatter.Serialize(t, pcl);
+                                            lock (sender)
+                                            {
+                                                sender.SendTo(t.GetBuffer(), OpponentEndPoint);
+                                            }
+                                            for (int i = 0; i < pcl.cluster.Count; i++)
+                                            {
+
+                                                lock (acknowledging)
+                                                {
+                                                    gameplayPacket gpp = pcl.cluster[i];
+                                                    if (!acknowledging.ContainsKey(gpp.id.Substring(clientId.Length)))
+                                                    {
+
+
+                                                        gpp.acknowledged = true;
+                                                        newestPacket = gpp;
+                                                        networkLeftClick = gpp.leftClick;
+                                                        networkRightClick = gpp.rightClick;
+                                                        enemyHoveredCol = gpp.col;
+                                                        enemyHoveredRow = gpp.row;
+                                                        networkLeftClick = gpp.leftClick;
+                                                        networkRightClick = gpp.rightClick;
+                                                        acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
+                                                        Thread.Sleep((1000 / 10));
+                                                    }
+                                                    else
+                                                    {
+                                                        acknowledging[gpp.id.Substring(clientId.Length)] = gpp;
+                                                    }
+                                                }
+
+                                            }
+
+                                        }
+                                    }
+                                }
+
+                            
+                        
+                    }
+                            
 
                         }
                     }
@@ -529,7 +704,7 @@ namespace Discus
                                 }
                             }
                         }
-
+                        
                     
                 }
                 else if (matchmaking)//we are looking for a match

@@ -113,6 +113,7 @@ namespace ConsoleApp1
                         MemoryStream tempBufferOut = new MemoryStream();
                         b.Serialize(tempBufferOut, sendToGamer1);
                         Sender.SendTo(tempBufferOut.ToArray(), new IPEndPoint(new IPAddress(sendToGamer0.ip), sendToGamer0.port));
+                        Console.WriteLine("sent pack 1 to - "+ new IPAddress(sendToGamer0.ip).Address+" "+ sendToGamer0.port);
                         MemoryStream tempBufferOut2 = new MemoryStream();
                         b.Serialize(tempBufferOut2, sendToGamer0);
                         Sender.SendTo(tempBufferOut2.ToArray(), new IPEndPoint(new IPAddress(sendToGamer1.ip), sendToGamer1.port));
