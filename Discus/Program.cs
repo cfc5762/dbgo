@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Discus
 {
@@ -14,8 +16,20 @@ namespace Discus
         [STAThread]
         static void Main()
         {
-            using (game = new Game1())
-                game.Run();
+            try
+            {
+                using (game = new Game1())
+                    game.Run();
+            }
+            catch (Exception e)
+            {
+                FileStream error = File.Create(Directory.GetCurrentDirectory() + "/" + DateTime.Now+".txt");
+                //BinaryWriter w = new BinaryWriter(error);
+                BinaryFormatter w = new BinaryFormatter();
+                w.Serialize(error, e.StackTrace + "/n" + e.Message);
+                error.Close();
+                error.Dispose();
+            }
         }
     }
 }
