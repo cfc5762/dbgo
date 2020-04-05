@@ -9,6 +9,7 @@ namespace Discus
     [Serializable]
     public class matchMakingPacket
     {
+        public string identifier;
         public int id;
         public bool acknowledged;
         public byte[] ip; //size 4

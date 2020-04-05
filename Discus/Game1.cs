@@ -1,8 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -25,6 +27,7 @@ namespace Discus
     /// </summary>
     public class Game1 : Game
     {
+        string identifier;
         Thread s;
         Thread r;
         int screenOffset = 0;
@@ -40,10 +43,11 @@ namespace Discus
         bool found;
         bool matchmaking;
         public List<matchMakingPacket> activeMMPackets;
+        public IPEndPoint server = new IPEndPoint(new IPAddress(new byte[] { 54, 174, 33, 248 }), 57735);
         public IPEndPoint MainEndPoint;
         public IPEndPoint OpponentEndPoint;
         public Socket listener;
-        public Socket sender;
+        public Socket outsock;
         public Team ballPlaceTeam;
         public bool online;
         public int actions;
@@ -111,19 +115,26 @@ namespace Discus
             var addresses = System.Net.Dns.GetHostAddresses(hostName);
             if (addresses.Length == 0)
             {
-             //  throw new ArgumentException(
-             //      "Unable to retrieve address from specified host name.",
-             //      "hostName"
-             //  );
+                //  throw new ArgumentException(
+                //      "Unable to retrieve address from specified host name.",
+                //      "hostName"
+                //  );
             }
             else if (throwIfMoreThanOneIP && addresses.Length > 1)
             {
-             //  throw new ArgumentException(
-             //      "There is more that one IP address to the specified host.",
-             //      "hostName"
-             //  );
+                //  throw new ArgumentException(
+                //      "There is more that one IP address to the specified host.",
+                //      "hostName"
+                //  );
             }
             return new IPEndPoint(addresses[0], port); // Port gets validated here.
+        }
+        private static Random random = new Random();
+        public static string RandomString(int length)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            return new string(Enumerable.Repeat(chars, length)
+              .Select(s => s[random.Next(s.Length)]).ToArray());
         }
         /// <summary>
         /// Allows the game to perform any initialization it needs to before starting to run.
@@ -133,6 +144,7 @@ namespace Discus
         /// </summary>
         protected override void Initialize()
         {
+            identifier = RandomString(10);
             whosTurn = Team.Red;
             flightDir = ballDir.up;
             newestPacket = new gameplayPacket();
@@ -140,7 +152,7 @@ namespace Discus
             found = false;
             matchmaking = true;
             MainEndPoint = new IPEndPoint(IPAddress.Any, 0);//bind to this
-            OpponentEndPoint = new IPEndPoint(new IPAddress(new byte[] { 54,208,228,240 }), 57735);//send to this
+            OpponentEndPoint = new IPEndPoint(new IPAddress(new byte[] { 54, 208, 228, 240 }), 57735);//send to this
             playerTeam = Team.Blue;
             enemyTeam = Team.Red;
             cyborgThrow = Team.Neutral;
@@ -269,7 +281,7 @@ namespace Discus
                     }
                     Vector2 location = Hex.HexToPoints(hex.Width * .15f, y, x);
                     boardLocations.Add(new Hex(location + new Vector2(hex.Width * .075f, 0), y, x));
-                    
+
                     //blue side
                     if (x == 2 && y == 5)
                     {
@@ -366,18 +378,22 @@ namespace Discus
 
             listener = new Socket(SocketType.Dgram, ProtocolType.Udp);
 
-            listener.Bind(MainEndPoint);
+
             acknowledging = new Dictionary<string, gameplayPacket>();
             unacknowledged = new List<gameplayPacket>();
             total = new Dictionary<string, gameplayPacket>();
             relevant.ip = MainEndPoint.Address.GetAddressBytes();
             relevant.port = MainEndPoint.Port;
-            sender = new Socket(SocketType.Dgram, ProtocolType.Udp);
+            outsock = new Socket(SocketType.Dgram, ProtocolType.Udp);
+            outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
+            //outsock.Blocking = false;
 
-
-           
+            r = new Thread(() => {
+                Recieve(outsock);
+            });
+            r.Start();
             s = new Thread(() => {
-                Send(sender);
+                Send(outsock);
             });
             s.Start();
 
@@ -392,15 +408,15 @@ namespace Discus
                     {
                         BoardGameHelpers.moveBall(ballHex, flightDir);
                     }
-                        if (whosTurn == Team.Red)
-                        {
-                            whosTurn = Team.Blue;
-                        }
-                        else
-                        {
-                            whosTurn = Team.Red;
-                        }
-                    
+                    if (whosTurn == Team.Red)
+                    {
+                        whosTurn = Team.Blue;
+                    }
+                    else
+                    {
+                        whosTurn = Team.Red;
+                    }
+
                     break;
                 default:
                     break;
@@ -408,12 +424,12 @@ namespace Discus
         }
         void Send(Socket s)
         {
-            Thread.Sleep(1000/30);
+            Thread.Sleep(1000/90);
             while (true)
             {
                 if (found)//we have a match
                 {
-                    lock (unacknowledged)//send out our unacknowledged packets
+                    lock (unacknowledged)//send out our unacknowledged packets in order
                     {
                         if (unacknowledged.Count > 0)
                         {
@@ -422,188 +438,9 @@ namespace Discus
                             MemoryStream m = new MemoryStream();
                             bf.Serialize(m, unacknowledged[0]);
 
-                            lock (sender)
-                            {
-                                sender.SendTo(m.GetBuffer(), OpponentEndPoint);
-                                byte[] b = new byte[1028];
-                                EndPoint Opponent = new IPEndPoint(IPAddress.Any,0);
-                                byte[] buffer = new byte[1024];
 
-                                EndPoint enemyClient = new IPEndPoint(IPAddress.Any, 0);
+                            s.SendTo(m.GetBuffer(), OpponentEndPoint);
 
-
-                                try
-                                {
-                                    s.ReceiveFrom(buffer, ref enemyClient);
-                                }
-                                catch (System.Exception)
-                                {
-
-                                    continue;
-                                }
-
-
-
-
-                                BinaryFormatter binaryFormatter = new BinaryFormatter();
-                                var latestr = binaryFormatter.Deserialize(new MemoryStream(buffer));
-                                if (latestr is gameplayPacket)
-                                {
-                                    gameplayPacket gpp = (gameplayPacket)latestr;
-                                    if (gpp.arbiterId == enemyId)
-                                    {
-                                        if (gpp.acknowledged)
-                                        {
-                                            lock (acknowledging)
-                                            {
-                                                acknowledging.Remove(gpp.id.Substring(enemyId.Length));
-                                            }
-
-
-                                        }
-                                        else
-                                        {
-
-                                            lock (acknowledging)
-                                            {
-                                                string key = gpp.id.Substring(enemyId.Length);
-                                                if (!acknowledging.ContainsKey(key))
-                                                {//acknowledge the packet
-                                                    resolveCommand(gpp.activeCommand);
-                                                    gpp.acknowledged = true;
-                                                    previousPacket = newestPacket;
-                                                    newestPacket = gpp;
-                                                    networkLeftClick = gpp.leftClick;
-                                                    networkRightClick = gpp.rightClick;
-                                                    enemyHoveredCol = gpp.col;
-                                                    enemyHoveredRow = gpp.row;
-                                                    networkLeftClick = gpp.leftClick;
-                                                    networkRightClick = gpp.rightClick;
-                                                    acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
-                                                }
-
-                                            }
-                                        }
-                                    }
-                                    else if (gpp.arbiterId == clientId)
-                                    {
-
-                                        if (gpp.acknowledged)
-                                        {
-                                            lock (sender)
-                                            {
-
-                                                sender.SendTo(buffer, OpponentEndPoint);
-
-                                            }
-                                            if (unacknowledged.Count > 0)
-                                            {
-                                                lock (unacknowledged)
-                                                {
-                                                    if (unacknowledged[0].id == gpp.id)
-                                                    {
-                                                        unacknowledged.RemoveAt(0);
-                                                    }
-                                                }
-                                            }
-
-                                        }
-                                        else
-                                        {
-
-                                        }
-                                    }
-                                }
-                                else if (latestr is packetCluster)
-                                {
-                                    packetCluster pcl = (packetCluster)latestr;
-                                    if (pcl.arbiterId == clientId)
-                                    {
-                                        if (pcl.acknowledged)
-                                        {
-                                            for (int j = 0; j < pcl.cluster.Count; j++)
-                                            {
-                                                lock (unacknowledged)
-                                                {
-                                                    if (unacknowledged[0] == pcl.cluster[j])
-                                                    {
-                                                        unacknowledged.RemoveAt(0);
-                                                    }
-                                                }
-                                            }
-                                            pcl.acknowledged = true;
-                                            MemoryStream t = new MemoryStream();
-                                            binaryFormatter.Serialize(t, pcl);
-                                            lock (sender)
-                                            {
-                                                sender.SendTo(t.GetBuffer(), OpponentEndPoint);
-                                            }
-                                        }
-                                    }
-                                    else if (pcl.arbiterId == enemyId)
-                                    {
-                                        if (pcl.acknowledged)
-                                        {
-                                            for (int i = 0; i < pcl.cluster.Count; i++)
-                                            {
-                                                gameplayPacket gpp = pcl.cluster[i];
-                                                lock (acknowledging)
-                                                {
-                                                    acknowledging.Remove(gpp.id.Substring(clientId.Length));
-                                                }
-
-                                                lock (sender)
-                                                {
-                                                    sender.SendTo(buffer, OpponentEndPoint);
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            pcl.acknowledged = true;
-                                            MemoryStream t = new MemoryStream();
-                                            binaryFormatter.Serialize(t, pcl);
-                                            lock (sender)
-                                            {
-                                                sender.SendTo(t.GetBuffer(), OpponentEndPoint);
-                                            }
-                                            for (int i = 0; i < pcl.cluster.Count; i++)
-                                            {
-
-                                                lock (acknowledging)
-                                                {
-                                                    gameplayPacket gpp = pcl.cluster[i];
-                                                    if (!acknowledging.ContainsKey(gpp.id.Substring(clientId.Length)))
-                                                    {
-
-
-                                                        gpp.acknowledged = true;
-                                                        newestPacket = gpp;
-                                                        networkLeftClick = gpp.leftClick;
-                                                        networkRightClick = gpp.rightClick;
-                                                        enemyHoveredCol = gpp.col;
-                                                        enemyHoveredRow = gpp.row;
-                                                        networkLeftClick = gpp.leftClick;
-                                                        networkRightClick = gpp.rightClick;
-                                                        acknowledging.Add(gpp.id.Substring(clientId.Length), gpp);
-                                                        Thread.Sleep((1000 / 10));
-                                                    }
-                                                    else
-                                                    {
-                                                        acknowledging[gpp.id.Substring(clientId.Length)] = gpp;
-                                                    }
-                                                }
-
-                                            }
-
-                                        }
-                                    }
-                                }
-
-                            
-                        
-                    }
-                            
 
                         }
                     }
@@ -614,7 +451,7 @@ namespace Discus
                             packetCluster pcl = new packetCluster();
                             pcl.acknowledged = true;
                             pcl.cluster = new List<gameplayPacket>();
-                            
+
                             foreach (string item in acknowledging.Keys)
                             {
 
@@ -622,77 +459,64 @@ namespace Discus
                                 MemoryStream m = new MemoryStream();
                                 bf.Serialize(m, acknowledging[item]);
 
-                                lock (sender)
-                                {
-                                    sender.SendTo(m.GetBuffer(), OpponentEndPoint);
-                                }
+
+                                s.SendTo(m.GetBuffer(), OpponentEndPoint);
+
                                 break;
                             }
-                           
+
 
                         }
 
                     }
-                   
-                        MemoryStream temp = new MemoryStream();
-                        EndPoint ep = OpponentEndPoint;
-                        gameplayPacket latest = new gameplayPacket();
-                        latest.col = hoveredCol;
-                        latest.row = hoveredRow;
-                        latest.rightClick = toSendRight;
-                        latest.leftClick = toSendLeft;
-                        if (toSendLeft)
+
+                    MemoryStream temp = new MemoryStream();
+                    EndPoint ep = OpponentEndPoint;
+                    gameplayPacket latest = new gameplayPacket();
+                    latest.col = hoveredCol;
+                    latest.row = hoveredRow;
+                    latest.rightClick = toSendRight;
+                    latest.leftClick = toSendLeft;
+                    if (toSendLeft)
+                    {
+                        toSendLeft = false;
+                    }
+                    if (toSendRight)
+                    {
+                        toSendRight = false;
+                    }
+                    latest.arbiterId = clientId;
+                    int i = 0;
+                    while (total.ContainsKey(packetID.ToString()))
+                    {
+                        packetID = (packetID + 1) % 9999;
+                        i++;
+                        if (i > 9999)
                         {
-                            toSendLeft = false;
+                            total = new Dictionary<string, gameplayPacket>();//this is very sloppy but should be ok???????????
+                            packetID = 0;
                         }
-                        if (toSendRight)
-                        {
-                            toSendRight = false;
-                        }
-                        latest.arbiterId = clientId;
-                        int i = 0;
-                        while (total.ContainsKey(packetID.ToString()))
-                        {
-                            packetID = (packetID + 1) % 9999;
-                            i++;
-                            if (i > 9999)
-                            {
-                                total = new Dictionary<string, gameplayPacket>();//this is very sloppy but should be ok???????????
-                                packetID = 0;
-                            }
-                        }
-                        latest.id = clientId + packetID;
+                    }
+                    latest.id = clientId + packetID;
 
                     latest.activeCommand = currentCommand;
                     resolveCommand(currentCommand);
                     currentCommand = 0;
-                        lock (unacknowledged)
+                    lock (unacknowledged)
+                    {
+                        string[] keys = new string[unacknowledged.Count];
+
+                        if (unacknowledged.Count > 0)
                         {
-                            string[] keys = new string[unacknowledged.Count];
-
-                            if (unacknowledged.Count > 0)
-                            {
-                                if (latest.leftClick != unacknowledged[unacknowledged.Count - 1].leftClick
-                                    ||
-                                    latest.rightClick != unacknowledged[unacknowledged.Count - 1].rightClick
-                                    ||
-                                    latest.row != unacknowledged[unacknowledged.Count - 1].row
-                                    ||
-                                    latest.col != unacknowledged[unacknowledged.Count - 1].col
-                                    ||
-                                    latest.activeCommand != unacknowledged[unacknowledged.Count - 1].activeCommand)//if this frame is different than the last one we 
-                                {
-                                    lock (total)
-                                    {
-                                        latest.acknowledged = false;
-                                        unacknowledged.Add(latest);
-                                        total.Add(packetID.ToString(), latest);
-
-
-                                    }
-                                }
-                            }
-                            else
+                            if (latest.leftClick != unacknowledged[unacknowledged.Count - 1].leftClick
+                                ||
+                                latest.rightClick != unacknowledged[unacknowledged.Count - 1].rightClick
+                                ||
+                                latest.row != unacknowledged[unacknowledged.Count - 1].row
+                                ||
+                                latest.col != unacknowledged[unacknowledged.Count - 1].col
+                                ||
+                                latest.activeCommand != unacknowledged[unacknowledged.Count - 1].activeCommand)//if this frame is different than the last one we 
                             {
                                 lock (total)
                                 {
@@ -704,91 +528,41 @@ namespace Discus
                                 }
                             }
                         }
-                        
-                    
+                        else
+                        {
+                            lock (total)
+                            {
+                                latest.acknowledged = false;
+                                unacknowledged.Add(latest);
+                                total.Add(packetID.ToString(), latest);
+
+
+                            }
+                        }
+                    }
+
+
                 }
                 else if (matchmaking)//we are looking for a match
                 {
                     MemoryStream temp = new MemoryStream();
-                    EndPoint ep = new IPEndPoint(new IPAddress(new byte[] { 3,88,177,170 }), 57735);
+                    EndPoint ep = server;
                     matchMakingPacket latest = new matchMakingPacket();
                     latest.acknowledged = false;
-                    latest.ip = new byte[] { ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[12], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[13], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[14], ((IPEndPoint)listener.LocalEndPoint).Address.GetAddressBytes()[15] };
-                    latest.port = ((IPEndPoint)listener.LocalEndPoint).Port;
+                    latest.identifier = identifier;
+                    latest.ip = new byte[] { ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[12], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[13], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[14], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[15] };
+                    latest.port = ((IPEndPoint)outsock.LocalEndPoint).Port;
                     BinaryFormatter bf = new BinaryFormatter();
                     bf.Serialize(temp, latest);
-                    lock (sender)
-                    {
-                        sender.SendTo(temp.GetBuffer(), ep);
-                    }
+
+                    s.SendTo(temp.GetBuffer(), ep);
+
                     Thread.Sleep(2000);
                 }
             }
         }
-        void Recieve(Socket s)
-        {
-            while (true)
-            {
-                if (matchmaking)//look for match
-                {
-                    byte[] buffer = new byte[1024];
-
-                    EndPoint enemyClient = new IPEndPoint(IPAddress.Any,0);
-
-                    s.ReceiveFrom(buffer, ref enemyClient);
-                    BinaryFormatter binaryFormatter = new BinaryFormatter();
-                    var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
-                    if (latest is matchMakingPacket)
-                    {//when we hear back start matchmaking
-                        matchMakingPacket mm = (matchMakingPacket)latest;
-                        sender.SendTo(buffer, new IPEndPoint(new IPAddress(new byte[] { 3, 88, 177, 170 }), 57735));
-                        OpponentEndPoint = new IPEndPoint(new IPAddress(mm.ip), mm.port);
-                        clientId = mm.clientID;
-                        enemyId = mm.enemyID;
-                        playerTeam = (Discus.Team)mm.color;
-                        if (playerTeam == Team.Red)
-                        {
-                            enemyTeam = Team.Blue;
-                        }
-                        else
-                        {
-                            enemyTeam = Team.Red;
-                        }
-                        whosTurn = Team.Red;
-                        found = true;
-                        matchmaking = false;
-                        Thread.Sleep(3000);
-                    }
-                    else
-                    {
-                        whosTurn = Team.Red;
-                        found = true;
-                        matchmaking = false;
-                    }
-
-                }
-                else
-                {
-                    byte[] buffer = new byte[1024];
-
-                    EndPoint enemyClient = new IPEndPoint(IPAddress.Any, 0);
-
-
-                    try
-                    {
-                        s.ReceiveFrom(buffer, ref enemyClient);
-                    }
-                    catch (System.Exception)
-                    {
-
-                        continue;
-                    }
-                        
-
-
-
-                        BinaryFormatter binaryFormatter = new BinaryFormatter();
-                        var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
+        void GameResponse(byte[] buffer , Socket s){ BinaryFormatter binaryFormatter = new BinaryFormatter();
+        var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
                         if (latest is gameplayPacket)
                         {
                             gameplayPacket gpp = (gameplayPacket)latest;
@@ -801,8 +575,8 @@ namespace Discus
                                         acknowledging.Remove(gpp.id.Substring(enemyId.Length));
                                     }
 
-                                   
-                                }
+
+}
                                 else
                                 {
                                     
@@ -812,7 +586,7 @@ namespace Discus
                                         if (!acknowledging.ContainsKey(key))
                                         {//acknowledge the packet
                                         resolveCommand(gpp.activeCommand);
-                                        gpp.acknowledged = true;
+gpp.acknowledged = true;
                                         previousPacket = newestPacket;
                                         newestPacket = gpp;
                                         networkLeftClick = gpp.leftClick;
@@ -832,12 +606,10 @@ namespace Discus
                                
                             if (gpp.acknowledged)
                                 {
-                                lock (sender)
-                                {
+                               
 
-                                    sender.SendTo(buffer, OpponentEndPoint);
-
-                                }
+                                    s.SendTo(buffer, OpponentEndPoint);
+                                
                                 if (unacknowledged.Count > 0)
                                 {
                                     lock (unacknowledged)
@@ -863,7 +635,7 @@ namespace Discus
                             {
                                 if (pcl.acknowledged)
                                 {
-                                    for (int i = 0; i < pcl.cluster.Count; i++)
+                                    for (int i = 0; i<pcl.cluster.Count; i++)
                                     {
                                     lock (unacknowledged)
                                         {
@@ -875,18 +647,17 @@ namespace Discus
                                     }
                                     pcl.acknowledged = true;
                                     MemoryStream t = new MemoryStream();
-                                    binaryFormatter.Serialize(t, pcl);
-                                    lock (sender)
-                                    {
-                                        sender.SendTo(t.GetBuffer(), OpponentEndPoint);
-                                    }
+binaryFormatter.Serialize(t, pcl);
+                                    
+                                        s.SendTo(t.GetBuffer(), OpponentEndPoint);
+                                   
                                 }
                             }
                             else if (pcl.arbiterId == enemyId)
                             {
                                 if (pcl.acknowledged)
                                 {
-                                    for (int i = 0; i < pcl.cluster.Count; i++)
+                                    for (int i = 0; i<pcl.cluster.Count; i++)
                                     {
                                         gameplayPacket gpp = pcl.cluster[i];
                                         lock (acknowledging)
@@ -894,22 +665,19 @@ namespace Discus
                                             acknowledging.Remove(gpp.id.Substring(clientId.Length));
                                         }
 
-                                        lock (sender)
-                                        {
-                                            sender.SendTo(buffer, OpponentEndPoint);
-                                        }
+                                        
+                                        s.SendTo(buffer, OpponentEndPoint);
+                                        
                                     }
                                 }
                                 else
                                 {
                                 pcl.acknowledged = true;
                                 MemoryStream t = new MemoryStream();
-                                binaryFormatter.Serialize(t, pcl);
-                                lock (sender)
-                                {
-                                    sender.SendTo(t.GetBuffer(), OpponentEndPoint);
-                                }
-                                for (int i = 0; i < pcl.cluster.Count; i++)
+binaryFormatter.Serialize(t, pcl);
+                                s.SendTo(t.GetBuffer(), OpponentEndPoint);
+                                
+                                for (int i = 0; i<pcl.cluster.Count; i++)
                                     {
                                         
                                         lock (acknowledging)
@@ -942,6 +710,70 @@ namespace Discus
                             }
                         }
 
+        }
+        void MMresponse(byte[] buffer,Socket s)
+        {
+            BinaryFormatter binaryFormatter = new BinaryFormatter();
+            var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
+            if (latest is matchMakingPacket)
+            {//when we hear back start matchmaking
+                
+                matchMakingPacket mm = (matchMakingPacket)latest;
+                if (mm.identifier == identifier)
+                {
+                    s.SendTo(buffer, server);
+                    OpponentEndPoint = new IPEndPoint(new IPAddress(mm.ip), mm.port);
+                    clientId = mm.clientID;
+                    enemyId = mm.enemyID;
+                    playerTeam = (Discus.Team)mm.color;
+                    if (playerTeam == Team.Red)
+                    {
+                        enemyTeam = Team.Blue;
+                    }
+                    else
+                    {
+                        enemyTeam = Team.Red;
+                    }
+                    whosTurn = Team.Red;
+                    found = true;
+                    matchmaking = false;
+                    Thread.Sleep(3000);
+                }
+                
+            }
+            
+            
+        }
+        void Recieve(Socket s)
+        {
+            while (true)
+            {
+                if (matchmaking)//look for match
+                {
+                    byte[] buffer = new byte[1024];
+
+                    EndPoint enemyClient = new IPEndPoint(IPAddress.Any,0);
+                    
+                    s.ReceiveFrom(buffer,0,1024,SocketFlags.None, ref enemyClient);
+
+                    MMresponse(buffer, s);
+                    
+                    
+                }
+                else
+                {
+                    byte[] buffer = new byte[1024];
+
+                    EndPoint enemyClient = new IPEndPoint(IPAddress.Any, 0);
+                    
+                        s.ReceiveFrom(buffer, 0, 1024, SocketFlags.None, ref enemyClient);
+                    GameResponse(buffer, s);
+
+
+
+
+                   
+
                     }
                 }
             }
@@ -958,7 +790,7 @@ namespace Discus
                 s.Abort();
                 r.Abort();
                 listener.Close();
-                sender.Close();
+                outsock.Close();
                 Exit();
             }
             curScroll = Mouse.GetState().ScrollWheelValue;
@@ -1583,8 +1415,7 @@ namespace Discus
             spriteBatch.DrawString(font, action + " - current action\n" + whosTurn.ToString() + " current turn\n" + playerTeam + " - my team\nBall place team - " + ballPlaceTeam.ToString(), Vector2.Zero, Color.White, 0, Vector2.Zero, 2f, SpriteEffects.None, 1);
             try
             {
-                spriteBatch.DrawString(font, action + " - current action\n" + whosTurn.ToString() + " current turn\n" + playerTeam + " - my team\nBall place team - " + ballPlaceTeam.ToString() + "\n" + ((IPEndPoint)listener.LocalEndPoint).Address + " " + ((IPEndPoint)listener.LocalEndPoint).Port, Vector2.Zero, Color.White, 0, Vector2.Zero, 2f, SpriteEffects.None, 1);
-
+                spriteBatch.DrawString(font, action + " - current action\n" + whosTurn.ToString() + " current turn\n" + playerTeam + " - my team\nBall place team - " + ballPlaceTeam.ToString() + "\n" + ((IPEndPoint)outsock.LocalEndPoint).Address + " " + ((IPEndPoint)outsock.LocalEndPoint).Port, Vector2.Zero, Color.White, 0, Vector2.Zero, 2f, SpriteEffects.None, 1);
             }
             catch (System.Exception)
             {
