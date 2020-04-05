@@ -23,7 +23,7 @@ namespace Discus
             }
             catch (Exception e)
             {
-                FileStream error = File.Create(Directory.GetCurrentDirectory() + "//" + DateTime.Now+".txt");
+                FileStream error = File.Create(DateTime.Now+".txt");
                 //BinaryWriter w = new BinaryWriter(error);
                 BinaryFormatter w = new BinaryFormatter();
                 w.Serialize(error, e.StackTrace + "/n" + e.Message);
