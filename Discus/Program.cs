@@ -28,7 +28,7 @@ namespace Discus
                 BinaryFormatter w = new BinaryFormatter();
                 w.Serialize(error, e.StackTrace + "/n" + e.Message);
                 error.Close();
-                error.Dispose();
+                
             }
         }
     }
