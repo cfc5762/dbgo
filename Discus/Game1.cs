@@ -27,6 +27,7 @@ namespace Discus
     /// </summary>
     public class Game1 : Game
     {
+        bool killthreads = false;
         string identifier;
         Thread s;
         Thread r;
@@ -429,6 +430,10 @@ namespace Discus
             Thread.Sleep(1000/90);
             while (true)
             {
+                if (killthreads)
+                {
+                    break;
+                }
                 if (found)//we have a match
                 {
                     lock (unacknowledged)//send out our unacknowledged packets in order
@@ -749,17 +754,37 @@ binaryFormatter.Serialize(t, pcl);
         }
         void Recieve(Socket s)
         {
+            
             while (true)
             {
+                
                 if (matchmaking)//look for match
                 {
                     byte[] buffer = new byte[1024];
-
+                    byte[] comparator = (byte[])buffer.Clone();
                     EndPoint enemyClient = new IPEndPoint(IPAddress.Any,0);
-                    
-                    s.ReceiveFrom(buffer,0,1024,SocketFlags.None, ref enemyClient);
 
-                    MMresponse(buffer, s);
+                    try
+                    {
+                        s.ReceiveFrom(buffer, 0, 1024, SocketFlags.None, ref enemyClient);
+                    }
+                    catch (Exception ex)
+                    {
+
+                        killthreads = true;
+                    }
+                    if (buffer != comparator)
+                    {
+                        BinaryFormatter binaryFormatter = new BinaryFormatter();
+                        try
+                        {
+                            var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
+                            if (latest is matchMakingPacket)
+                                MMresponse(buffer, s);
+                        }
+                        catch { }
+                       
+                    }
                     
                     
                 }
@@ -788,11 +813,12 @@ binaryFormatter.Serialize(t, pcl);
         protected override void Update(GameTime gameTime)
         {
             
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
+            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape)||killthreads)
             {
-                s.Abort();
+                killthreads = true;
+                Thread.Sleep(50);
+                while (s.IsAlive) { s.Abort(); }
                 r.Abort();
-               
                 listener.Close();
                 listener.Dispose();
                 outsock.Close();
