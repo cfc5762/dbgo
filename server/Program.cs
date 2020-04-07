@@ -109,6 +109,7 @@ namespace ConsoleApp1
                         }
                     }
                     index = 0;
+                    
                     foreach (var item in toSend.ToArray())
                     {
                         if (DateTime.Now.Subtract(toSendRemoval[index]).TotalSeconds > 3)
@@ -117,7 +118,7 @@ namespace ConsoleApp1
                             Console.WriteLine("removing " + item);
                             toSend.RemoveAt(index);
                             toSendRemoval.RemoveAt(index);
-
+                            index--;
                         }
                         index++;
                     }
@@ -147,9 +148,11 @@ namespace ConsoleApp1
                        MemoryStream tempBufferOut = new MemoryStream();
                        b.Serialize(tempBufferOut, sendToGamer1);
                         byte[] temp = new byte[1024];
+                        
                         for (int i = 0; i < tempBufferOut.ToArray().Length; i++)
                         {
                             temp[i] = tempBufferOut.ToArray()[i];
+                            
                         }
                         Console.WriteLine(temp.Length);
                         toSend.Add(new Tuple<byte[], IPEndPoint>(temp, new IPEndPoint(new IPAddress(sendToGamer0.ip), sendToGamer0.port)));
@@ -158,9 +161,11 @@ namespace ConsoleApp1
                        
                        MemoryStream tempBufferOut2 = new MemoryStream();
                         temp = new byte[1024];
+                        
                         for (int i = 0; i < tempBufferOut2.ToArray().Length; i++)
                         {
                             temp[i] = tempBufferOut2.ToArray()[i];
+
                         }
                         b.Serialize(tempBufferOut2, sendToGamer0);
                         Console.WriteLine(temp.Length);

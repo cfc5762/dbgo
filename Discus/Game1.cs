@@ -385,17 +385,18 @@ namespace Discus
             relevant.ip = MainEndPoint.Address.GetAddressBytes();
             relevant.port = MainEndPoint.Port;
             outsock = new Socket(SocketType.Dgram, ProtocolType.Udp);
-            outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
+            //outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
             //outsock.Blocking = false;
-
-            r = new Thread(() => {
-                Recieve(outsock);
-            });
-            r.Start();
             s = new Thread(() => {
                 Send(outsock);
             });
             s.Start();
+            Thread.Sleep(300);
+            r = new Thread(() => {
+                Recieve(outsock);
+            });
+            r.Start();
+            
 
         }
         public void resolveCommand(int cmd)
