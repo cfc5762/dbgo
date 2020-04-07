@@ -80,7 +80,7 @@ namespace ConsoleApp1
                         continue;
                     }
                     message.ip = new byte[] { ((IPEndPoint)wanderingGamer).Address.GetAddressBytes()[12], ((IPEndPoint)wanderingGamer).Address.GetAddressBytes()[13], ((IPEndPoint)wanderingGamer).Address.GetAddressBytes()[14], ((IPEndPoint)wanderingGamer).Address.GetAddressBytes()[15] };
-                    message.port = ((IPEndPoint)wanderingGamer).Port;
+                    message.port = 45454;
                     Console.WriteLine(message.ip[0] + "."+message.ip[1] + "."+message.ip[2] + "."+message.ip[3] + ":"+message.port);
                     if (message.acknowledged)
                     {
