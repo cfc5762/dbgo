@@ -384,8 +384,9 @@ namespace Discus
             total = new Dictionary<string, gameplayPacket>();
             relevant.ip = MainEndPoint.Address.GetAddressBytes();
             relevant.port = MainEndPoint.Port;
-            outsock = new Socket(SocketType.Dgram, ProtocolType.Udp);
-           // outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
+            
+            outsock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
             //outsock.Blocking = false;
             s = new Thread(() => {
                 Send(outsock);
@@ -714,6 +715,7 @@ binaryFormatter.Serialize(t, pcl);
         }
         void MMresponse(byte[] buffer,Socket s)
         {
+            
             BinaryFormatter binaryFormatter = new BinaryFormatter();
             var latest = binaryFormatter.Deserialize(new MemoryStream(buffer));
             if (latest is matchMakingPacket)
@@ -790,8 +792,11 @@ binaryFormatter.Serialize(t, pcl);
             {
                 s.Abort();
                 r.Abort();
+               
                 listener.Close();
+                listener.Dispose();
                 outsock.Close();
+                outsock.Dispose();
                 Exit();
             }
             curScroll = Mouse.GetState().ScrollWheelValue;
