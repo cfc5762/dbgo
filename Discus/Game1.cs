@@ -386,7 +386,7 @@ namespace Discus
             relevant.port = MainEndPoint.Port;
             
             outsock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
+            //outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
             //outsock.Blocking = false;
             s = new Thread(() => {
                 Send(outsock);
@@ -442,7 +442,7 @@ namespace Discus
 
 
                             s.SendTo(m.GetBuffer(), OpponentEndPoint);
-
+                            
 
                         }
                     }
@@ -558,7 +558,7 @@ namespace Discus
                     bf.Serialize(temp, latest);
 
                     s.SendTo(temp.GetBuffer(), ep);
-
+                    
                     Thread.Sleep(2000);
                 }
             }
