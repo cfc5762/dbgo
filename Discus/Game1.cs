@@ -385,7 +385,7 @@ namespace Discus
             relevant.ip = MainEndPoint.Address.GetAddressBytes();
             relevant.port = MainEndPoint.Port;
             outsock = new Socket(SocketType.Dgram, ProtocolType.Udp);
-            //outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
+           // outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
             //outsock.Blocking = false;
             s = new Thread(() => {
                 Send(outsock);
@@ -551,8 +551,8 @@ namespace Discus
                     matchMakingPacket latest = new matchMakingPacket();
                     latest.acknowledged = false;
                     latest.identifier = identifier;
-                    latest.ip = new byte[] { ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[12], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[13], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[14], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[15] };
-                    latest.port = ((IPEndPoint)outsock.LocalEndPoint).Port;
+                    //latest.ip = new byte[] { ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[12], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[13], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[14], ((IPEndPoint)outsock.LocalEndPoint).Address.GetAddressBytes()[15] };
+                    //latest.port = ((IPEndPoint)outsock.LocalEndPoint).Port;
                     BinaryFormatter bf = new BinaryFormatter();
                     bf.Serialize(temp, latest);
 
