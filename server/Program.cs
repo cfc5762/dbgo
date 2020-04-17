@@ -34,14 +34,17 @@ namespace ConsoleApp1
             
             //create sender to talk to the players
             Socket Sender = new Socket(SocketType.Dgram, ProtocolType.Udp);
+            
             //create reciever to recieve from the players
             Socket Listener = new Socket(SocketType.Dgram, ProtocolType.Udp);
+            //Listener.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.ReuseAddress, true);
             //resolve future host address
             IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
             IPAddress ipAddress = ipHostInfo.AddressList[0];
             //temp endpoint
             IPEndPoint localEndPoint = new IPEndPoint(GetLocalIPAddress(), 57735);
             Listener.Bind(localEndPoint);
+            
             Console.WriteLine("hosting on "+localEndPoint.Address+" "+localEndPoint.Port);
             List<DateTime> toSendRemoval = new List<DateTime>();
             List<Tuple<byte[], IPEndPoint>> toSend = new List<Tuple<byte[], IPEndPoint>>();
@@ -69,7 +72,7 @@ namespace ConsoleApp1
                     {
                         if (((IPEndPoint)wanderingGamer) == item.Item2)
                         {
-                            Sender.SendTo(item.Item1, 1024, SocketFlags.None, item.Item2);
+                            Listener.SendTo(item.Item1, 1024, SocketFlags.None, item.Item2);
                             toSendRemoval[index] = DateTime.Now;
                             cont = true;
                         }
@@ -80,7 +83,7 @@ namespace ConsoleApp1
                         continue;
                     }
                     message.ip = new byte[] { ((IPEndPoint)wanderingGamer).Address.GetAddressBytes()[12], ((IPEndPoint)wanderingGamer).Address.GetAddressBytes()[13], ((IPEndPoint)wanderingGamer).Address.GetAddressBytes()[14], ((IPEndPoint)wanderingGamer).Address.GetAddressBytes()[15] };
-                    message.port = 45454;
+                    message.port = ((IPEndPoint)wanderingGamer).Port;
                     Console.WriteLine(message.ip[0] + "."+message.ip[1] + "."+message.ip[2] + "."+message.ip[3] + ":"+message.port);
                     if (message.acknowledged)
                     {
@@ -157,7 +160,7 @@ namespace ConsoleApp1
                         Console.WriteLine(temp.Length);
                         toSend.Add(new Tuple<byte[], IPEndPoint>(temp, new IPEndPoint(new IPAddress(sendToGamer0.ip), sendToGamer0.port)));
                         toSendRemoval.Add(DateTime.Now);
-                        Sender.SendTo(temp,1024,SocketFlags.None, new IPEndPoint(new IPAddress(sendToGamer0.ip), sendToGamer0.port));
+                        Listener.Send(temp, 1024, SocketFlags.None); //new IPEndPoint(new IPAddress(sendToGamer0.ip), sendToGamer0.port));
                        
                        MemoryStream tempBufferOut2 = new MemoryStream();
                         temp = new byte[1024];
@@ -171,7 +174,7 @@ namespace ConsoleApp1
                         Console.WriteLine(temp.Length);
                         toSend.Add(new Tuple<byte[], IPEndPoint>(temp, new IPEndPoint(new IPAddress(sendToGamer1.ip), sendToGamer1.port)));
                         toSendRemoval.Add(DateTime.Now);
-                        Sender.SendTo(temp,1024,SocketFlags.None, new IPEndPoint(new IPAddress(sendToGamer1.ip), sendToGamer1.port));
+                        Listener.Send(temp, 1024, SocketFlags.None); //new IPEndPoint(new IPAddress(sendToGamer1.ip), sendToGamer1.port));
                     }
                 }
                 catch (Exception ex)

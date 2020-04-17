@@ -9,6 +9,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
+using Renci.SshNet;
+using Renci.SshNet.Common;
+using System.Text;
 
 namespace Discus
 {
@@ -27,6 +30,7 @@ namespace Discus
     /// </summary>
     public class Game1 : Game
     {
+        UDPSocket uDP = new UDPSocket();
         bool killthreads = false;
         string identifier;
         Thread s;
@@ -110,6 +114,79 @@ namespace Discus
         {
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
+        }
+        /// <summary>
+        /// Specify arguments.Order is important: BoundHost:BoundPort RemoteHost:RemotePort username password
+        /// </summary>
+        /// <param name="args"></param>
+        static void OpenPort(string[] args)
+        {
+            if (args.Length != 4)
+            {
+                //Console.WriteLine("Specify arguments. Order is important: BoundHost:BoundPort RemoteHost:RemotePort username password");
+                //Console.WriteLine("Example: 127.0.0.1:522 192.168.2.1:22 username password");
+                return;
+            }
+            char[] splitCh = { ':' };
+            string[] boundEndPoint = args[0].Split(splitCh);
+            string[] remoteEndPoint = args[1].Split(splitCh);
+            if ((boundEndPoint.Length != 2) || (remoteEndPoint.Length != 2))
+            {
+                //Console.WriteLine("Not correct bound or remote end point argument");
+                return;
+            }
+            else
+            {
+                if (String.IsNullOrEmpty(boundEndPoint[0]) || String.IsNullOrEmpty(boundEndPoint[1]) ||
+                    String.IsNullOrEmpty(remoteEndPoint[0]) || String.IsNullOrEmpty(remoteEndPoint[1]))
+                {
+                  //  Console.WriteLine("Not correct bound or remote end point argument");
+                    return;
+                }
+            }
+            uint boundPort, remotePort = 0;
+            try
+            {
+                boundPort = Convert.ToUInt32(boundEndPoint[1]);
+                remotePort = Convert.ToUInt32(remoteEndPoint[1]);
+            }
+            catch
+            {
+                //Console.WriteLine("Cannot convert bound or remote port to number");
+                return;
+            }
+            PasswordAuthenticationMethod passordAuth = new PasswordAuthenticationMethod(args[2], Encoding.ASCII.GetBytes(args[3]));
+            ConnectionInfo conInfo = new ConnectionInfo(remoteEndPoint[0], (int)remotePort, args[2], new AuthenticationMethod[] { passordAuth });
+            using (var client = new SshClient(conInfo))
+            {
+                try
+                {
+                    ForwardedPort port = new ForwardedPortLocal(boundEndPoint[0], boundPort, remoteEndPoint[0], remotePort);
+                    client.Connect();
+                    client.AddForwardedPort(port);
+                    port.RequestReceived += new EventHandler<PortForwardEventArgs>(port_RequestReceived);
+                    port.Exception += new EventHandler<ExceptionEventArgs>(port_ExceptiontReceived);
+                    port.Start();
+                    Console.WriteLine("Listening on {0}. Forwaring to {1}", args[0], args[1]);
+                    while (!Program.game.killthreads)
+                    {
+
+                    }   // Press any key for exit
+                    client.Disconnect();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+        }
+        static void port_RequestReceived(object sender, PortForwardEventArgs e)
+        {
+            Console.WriteLine("Tunnel connection: {0}:{1}", e.OriginatorHost, e.OriginatorPort);
+        }
+        static void port_ExceptiontReceived(object sender, ExceptionEventArgs e)
+        {
+            Console.WriteLine("Tunnel exception: {0} (Innner: {1})", e.Exception.Message, e.Exception.InnerException);
         }
         public static IPEndPoint GetIPEndPointFromHostName(string hostName, int port, bool throwIfMoreThanOneIP)
         {
@@ -377,7 +454,7 @@ namespace Discus
             //the relevant matchmaking packet
             relevant = new matchMakingPacket();
 
-            listener = new Socket(SocketType.Dgram, ProtocolType.Udp);
+            
 
 
             acknowledging = new Dictionary<string, gameplayPacket>();
@@ -385,10 +462,12 @@ namespace Discus
             total = new Dictionary<string, gameplayPacket>();
             relevant.ip = MainEndPoint.Address.GetAddressBytes();
             relevant.port = MainEndPoint.Port;
-            
-            outsock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            //uDP.Client(server.Address + "", server.Port);
+            outsock = new Socket(AddressFamily.InterNetwork,SocketType.Dgram, ProtocolType.Udp);
             outsock.Bind(new IPEndPoint(GetLocalIPAddress(), 45454));
+            // OpenPort(new string[]{ ((IPEndPoint)outsock.LocalEndPoint).Address + ":" + ((IPEndPoint)outsock.LocalEndPoint).Port, (server).Address + ":" + (server).Port,"Administrator", ";ST$97MBK%&j*bJO;PCLMgi=M@xK?$9=" });
             //outsock.Blocking = false;
+            outsock.Connect(server);
             s = new Thread(() => {
                 Send(outsock);
             });
@@ -562,7 +641,7 @@ namespace Discus
                     BinaryFormatter bf = new BinaryFormatter();
                     bf.Serialize(temp, latest);
 
-                    s.SendTo(temp.GetBuffer(), ep);
+                    s.Send(temp.GetBuffer());
                     
                     Thread.Sleep(2000);
                 }
@@ -816,6 +895,7 @@ binaryFormatter.Serialize(t, pcl);
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape)||killthreads)
             {
                 killthreads = true;
+                outsock.Disconnect(false);
                 Thread.Sleep(50);
                 while (s.IsAlive) { s.Abort(); }
                 r.Abort();

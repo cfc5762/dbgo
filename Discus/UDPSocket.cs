@@ -15,7 +15,7 @@ namespace Discus
         private const int bufSize = 8 * 1024;
         private State state = new State();
         private EndPoint epFrom = new IPEndPoint(IPAddress.Any, 0);
-        private AsyncCallback recv = null;
+        public AsyncCallback recv = null;
 
         public class State
         {
