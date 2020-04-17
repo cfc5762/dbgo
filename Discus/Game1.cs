@@ -132,7 +132,7 @@ namespace Discus
             string[] remoteEndPoint = args[1].Split(splitCh);
             if ((boundEndPoint.Length != 2) || (remoteEndPoint.Length != 2))
             {
-                //Console.WriteLine("Not correct bound or remote end point argument");
+              //Console.WriteLine("Not correct bound or remote end point argument");
                 return;
             }
             else
@@ -140,7 +140,7 @@ namespace Discus
                 if (String.IsNullOrEmpty(boundEndPoint[0]) || String.IsNullOrEmpty(boundEndPoint[1]) ||
                     String.IsNullOrEmpty(remoteEndPoint[0]) || String.IsNullOrEmpty(remoteEndPoint[1]))
                 {
-                  //  Console.WriteLine("Not correct bound or remote end point argument");
+                  //Console.WriteLine("Not correct bound or remote end point argument");
                     return;
                 }
             }
@@ -152,7 +152,7 @@ namespace Discus
             }
             catch
             {
-                //Console.WriteLine("Cannot convert bound or remote port to number");
+              //Console.WriteLine("Cannot convert bound or remote port to number");
                 return;
             }
             PasswordAuthenticationMethod passordAuth = new PasswordAuthenticationMethod(args[2], Encoding.ASCII.GetBytes(args[3]));
@@ -895,7 +895,7 @@ binaryFormatter.Serialize(t, pcl);
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape)||killthreads)
             {
                 killthreads = true;
-                outsock.Disconnect(false);
+                //outsock.Disconnect(false);
                 Thread.Sleep(50);
                 while (s.IsAlive) { s.Abort(); }
                 r.Abort();

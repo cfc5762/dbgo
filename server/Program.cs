@@ -160,7 +160,7 @@ namespace ConsoleApp1
                         Console.WriteLine(temp.Length);
                         toSend.Add(new Tuple<byte[], IPEndPoint>(temp, new IPEndPoint(new IPAddress(sendToGamer0.ip), sendToGamer0.port)));
                         toSendRemoval.Add(DateTime.Now);
-                        Listener.Send(temp, 1024, SocketFlags.None); //new IPEndPoint(new IPAddress(sendToGamer0.ip), sendToGamer0.port));
+                        Listener.SendTo(temp, 1024, SocketFlags.None,new IPEndPoint(new IPAddress(sendToGamer0.ip), sendToGamer0.port));
                        
                        MemoryStream tempBufferOut2 = new MemoryStream();
                         temp = new byte[1024];
@@ -174,7 +174,7 @@ namespace ConsoleApp1
                         Console.WriteLine(temp.Length);
                         toSend.Add(new Tuple<byte[], IPEndPoint>(temp, new IPEndPoint(new IPAddress(sendToGamer1.ip), sendToGamer1.port)));
                         toSendRemoval.Add(DateTime.Now);
-                        Listener.Send(temp, 1024, SocketFlags.None); //new IPEndPoint(new IPAddress(sendToGamer1.ip), sendToGamer1.port));
+                        Listener.SendTo(temp, 1024, SocketFlags.None ,new IPEndPoint(new IPAddress(sendToGamer1.ip), sendToGamer1.port));
                     }
                 }
                 catch (Exception ex)

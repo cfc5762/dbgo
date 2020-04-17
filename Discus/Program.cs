@@ -16,21 +16,10 @@ namespace Discus
         [STAThread]
         static void Main()
         {
-            try
-            {
+            
                 using (game = new Game1())
                     game.Run();
-            }
-            catch (Exception e)
-            {
-                //string s = Directory.GetCurrentDirectory();
-                //FileStream error = File.Create(s);
-                //BinaryWriter w = new BinaryWriter(error);
-                //BinaryFormatter w = new BinaryFormatter();
-                //w.Serialize(error, e.StackTrace + "/n" + e.Message);
-                //error.Close();
-                
-            }
+            
         }
     }
 }
