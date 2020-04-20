@@ -182,7 +182,7 @@ namespace Discus
                         {
                             Program.game.actionHex = curhex.upN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
+                            Program.game.action = "placeball";
                             Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
@@ -214,7 +214,7 @@ namespace Discus
                         {
                             Program.game.actionHex = curhex.upRightN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
+                            Program.game.action = "placeball";
                             Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
@@ -245,7 +245,7 @@ namespace Discus
                         {
                             Program.game.actionHex = curhex.downRightN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
+                            Program.game.action = "placeball";
                             Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
@@ -276,7 +276,7 @@ namespace Discus
                         {
                             Program.game.actionHex = curhex.downN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
+                            Program.game.action = "placeball";
                             Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
@@ -307,7 +307,7 @@ namespace Discus
                         {
                             Program.game.actionHex = curhex.downLeftN;
                             Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
-                            Program.game.action = "placeBall";
+                            Program.game.action = "placeball";
                             Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
                             ballLocationStart.piece = null;
                             Program.game.ballFlying = false;
@@ -347,7 +347,7 @@ namespace Discus
                 Program.game.ballPlaceTeam = Program.game.actionHex.piece.team;
                 Program.game.hoveredSpace.piece = Program.game.actionHex.piece;
                 Program.game.actionHex.piece = null;
-                Program.game.action = "placeBall";
+                Program.game.action = "placeball";
                 Program.game.abilityHexes = Program.game.hoveredSpace.getMoveArea(1);
                 Program.game.actionHex = Program.game.hoveredSpace;
             }

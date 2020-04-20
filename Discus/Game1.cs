@@ -434,7 +434,7 @@ namespace Discus
                         gameplayPacket latest = new gameplayPacket();
                         latest.col = hoveredCol;
                         latest.row = hoveredRow;
-                        latest.rightClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
+                        latest.rightClick = Mouse.GetState().RightButton == ButtonState.Pressed;
                         latest.leftClick = Mouse.GetState().LeftButton == ButtonState.Pressed;
                         latest.arbiterId = clientId;
                         int i = 0;
@@ -835,9 +835,22 @@ namespace Discus
                         {
                             Piece temp = hoveredSpace.piece;//save our piece as a temp
                             actionHex = hoveredSpace;//save our hovered space as the action hex
-
-                            if (temp is Interceptor)
+                            bool cantmove = false;
+                            if (ballHex != null)
                             {
+                                if (((Ball)ballHex.piece).ownerSpace == actionHex)
+                                {
+                                    cantmove = true;
+                                }
+                            }
+                            if (cantmove)
+                            {
+                                actionHex = null;
+                            }
+                            else if (temp is Interceptor)
+                            {
+
+                                
                                 action = "move";
                                 if (ballFlying)
                                 {//interceptor passive
@@ -878,7 +891,18 @@ namespace Discus
 
                                 Piece temp = enemyHoveredSpace.piece;
                                 actionHex = enemyHoveredSpace;
-
+                                bool cantmove = false;
+                                if (ballHex != null)
+                                {
+                                    if (((Ball)ballHex.piece).ownerSpace == actionHex)
+                                    {
+                                        cantmove = true;
+                                    }
+                                }
+                                if (cantmove)
+                                {
+                                    actionHex = null;
+                                }
                                 if (temp is Interceptor)
                                 {
                                     action = "move";
@@ -1002,7 +1026,7 @@ namespace Discus
                 {
                     movementHexes = new List<Hex>();
                    
-                    BoardGameHelpers.placeBall(hoveredSpace, new Ball(Team.Neutral), whosTurn);
+                    BoardGameHelpers.placeBall(enemyHoveredSpace, new Ball(Team.Neutral), whosTurn);
                     actionHex = enemyHoveredSpace;
                     abilityHexes = actionHex.GetNeighbors();
                     action = "throwball";
