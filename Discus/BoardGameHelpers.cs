@@ -134,7 +134,7 @@ namespace Discus
             switch (direction)
             {
                 case ballDir.upLeft:
-                    for (int j = 0; j < 4; j++)
+                    for (int j = 0; j < 3; j++)
                     {
                         if (curhex.upLeftN == null)
                         {
@@ -170,7 +170,7 @@ namespace Discus
                     }
                     break;
                 case ballDir.up:
-                    for (int j = 0; j < 4; j++)
+                    for (int j = 0; j < 3; j++)
                     {
                         if (curhex.upN == null)
                         {
@@ -202,7 +202,7 @@ namespace Discus
                     }
                     break;
                 case ballDir.upRight:
-                    for (int j = 0; j < 4; j++)
+                    for (int j = 0; j < 3; j++)
                     {
                         if (curhex.upRightN == null)
                         {
@@ -233,7 +233,7 @@ namespace Discus
                     }
                     break;
                 case ballDir.downRight:
-                    for (int j = 0; j < 4; j++)
+                    for (int j = 0; j < 3; j++)
                     {
                         if (curhex.downRightN == null)
                         {
@@ -264,7 +264,7 @@ namespace Discus
                     }
                     break;
                 case ballDir.down:
-                    for (int j = 0; j < 4; j++)
+                    for (int j = 0; j < 3; j++)
                     {
                         if (curhex.downN == null)
                         {
@@ -295,7 +295,7 @@ namespace Discus
                     }
                     break;
                 case ballDir.downLeft:
-                    for (int j = 0; j < 4; j++)
+                    for (int j = 0; j < 3; j++)
                     {
                         if (curhex.downLeftN == null)
                         {

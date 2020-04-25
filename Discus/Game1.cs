@@ -830,7 +830,8 @@ namespace Discus
             {//no selected action
                 if (whosTurn == playerTeam)
                 {//its the clients turn
-                    if (hoveredSpace.piece != null)//we are hovering a piece
+                    if (hoveredSpace.piece != null)
+                    {//we are hovering a piece
                         if (hoveredSpace.piece.team == playerTeam && prevLeftMouseState == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed)//click on a friendly piece
                         {
                             Piece temp = hoveredSpace.piece;//save our piece as a temp
@@ -850,7 +851,7 @@ namespace Discus
                             else if (temp is Interceptor)
                             {
 
-                                
+
                                 action = "move";
                                 if (ballFlying)
                                 {//interceptor passive
@@ -880,10 +881,33 @@ namespace Discus
                                 action = "moveball";
                             }
                         }
+                        else if (hoveredSpace.piece.team == playerTeam && prevRightMouseState == ButtonState.Released && Mouse.GetState().RightButton == ButtonState.Pressed)
+                        {
+                            Piece temp = hoveredSpace.piece;
+                            if (temp is Brute && temp.hasAbility)
+                            {
+                                List<Hex> N = hoveredSpace.GetNeighbors();
+                                for (int i = 0; i < N.Count; i++)
+                                {
+                                    if (N[i].piece != null)
+                                    {
+                                        if (N[i].piece.team != temp.team)
+                                        {
+                                            temp.hasAbility = false;
+                                            N[i].piece = null;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
                 }
                 else
                 {
-                    if (enemyHoveredSpace != null)  
+                    if (enemyHoveredSpace != null)
+                    {
                         if (enemyHoveredSpace.piece != null && newestPacket.leftClick && !previousPacket.leftClick)
                         {
                             if (enemyHoveredSpace.piece.team == enemyTeam)//enemy side - see above comments
@@ -936,6 +960,369 @@ namespace Discus
                                 }
                             }
                         }
+                        else if (enemyHoveredSpace.piece !=null && !previousPacket.rightClick && newestPacket.rightClick)
+                        {
+                            if (enemyHoveredSpace.piece.team == enemyTeam)
+                            {
+                                Piece temp = enemyHoveredSpace.piece;
+                                if (temp is Brute && temp.hasAbility)
+                                {
+                                    List<Hex> N = enemyHoveredSpace.GetNeighbors();
+                                    for (int i = 0; i < N.Count; i++)
+                                    {
+                                        if (N[i].piece != null)
+                                        {
+                                            if (N[i].piece.team != temp.team)
+                                            {
+                                                temp.hasAbility = false;
+                                                N[i].piece = null;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (temp is Interceptor)
+                                {
+                                    //can we dive
+                                    ballDir diveDir = ballDir.noDir;
+                                    Hex pieceHex = enemyHoveredSpace;
+                                    for (int i = 0; i < 6; i++)
+                                    {
+                                        if (diveDir != ballDir.noDir)
+                                        {
+                                            break;
+                                        }
+                                        Hex current = pieceHex;
+                                        for (int j = 0; j < 3; j++)
+                                        {
+                                            if (diveDir != ballDir.noDir)
+                                            {
+                                                break;
+                                            }
+                                            switch (i)
+                                            {
+                                                case 0:
+                                                    current = current.upLeftNeighbor;
+                                                    if (current.piece != null)
+                                                    {
+                                                        if (current.piece is Ball)
+                                                        {
+                                                            try
+                                                            {
+                                                                if (pieceHex.upLeftN.upLeftN.upLeftN != null)
+                                                                {
+                                                                    Hex diveclear = pieceHex;
+                                                                    for (int iterator = 0; iterator < 2; iterator++)
+                                                                    {
+                                                                        diveclear = diveclear.upLeftNeighbor;
+                                                                        try
+                                                                        {
+                                                                            if (diveclear.piece != null)
+                                                                            {
+                                                                                if (diveclear.piece.team == pieceHex.piece.team)
+                                                                                {
+                                                                                    diveclear.piece = null;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        catch (System.Exception)
+                                                                        {
+
+                                                                        }
+                                                                    }
+                                                                    diveDir = ballDir.upLeft;
+                                                                }
+                                                            }
+                                                            catch (System.Exception)
+                                                            {
+
+                                                               
+                                                            }
+                                                            
+                                                        }
+                                                    }
+                                                    break;
+                                                case 1:
+                                                    current = current.upNeighbor;
+                                                    if (current.piece != null)
+                                                    {
+                                                        if (current.piece is Ball)
+                                                        {
+                                                            try
+                                                            {
+                                                                if (pieceHex.upN.upN.upN != null)
+                                                                {
+                                                                    Hex diveclear = pieceHex;
+                                                                    for (int iterator = 0; iterator < 2; iterator++)
+                                                                    {
+                                                                        diveclear = diveclear.upNeighbor;
+                                                                        try
+                                                                        {
+                                                                            if (diveclear.piece != null)
+                                                                            {
+                                                                                if (diveclear.piece.team == pieceHex.piece.team)
+                                                                                {
+                                                                                    diveclear.piece = null;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        catch (System.Exception)
+                                                                        {
+
+                                                                        }
+                                                                    }
+                                                                    diveDir = ballDir.up;
+                                                                }
+                                                            }
+                                                            catch (System.Exception)
+                                                            {
+
+
+                                                            }
+
+                                                        }
+                                                    }
+                                                    break;
+                                                case 2:
+                                                    current = current.upRightNeighbor;
+                                                    if (current.piece != null)
+                                                    {
+                                                        if (current.piece is Ball)
+                                                        {
+                                                            try
+                                                            {
+                                                                if (pieceHex.upRightN.upRightN.upRightN != null)
+                                                                {
+                                                                    Hex diveclear = pieceHex;
+                                                                    for (int iterator = 0; iterator < 2; iterator++)
+                                                                    {
+                                                                        diveclear = diveclear.upRightNeighbor;
+                                                                        try
+                                                                        {
+                                                                            if (diveclear.piece != null)
+                                                                            {
+                                                                                if (diveclear.piece.team == pieceHex.piece.team)
+                                                                                {
+                                                                                    diveclear.piece = null;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        catch (System.Exception)
+                                                                        {
+
+                                                                        }
+                                                                    }
+                                                                    diveDir = ballDir.upRight;
+                                                                }
+                                                            }
+                                                            catch (System.Exception)
+                                                            {
+
+
+                                                            }
+
+                                                        }
+                                                    }
+                                                    break;
+                                                case 3:
+                                                    current = current.downRightNeighbor;
+                                                    if (current.piece != null)
+                                                    {
+                                                        if (current.piece is Ball)
+                                                        {
+                                                            try
+                                                            {
+                                                                if (pieceHex.downRightN.downRightN.downRightN != null)
+                                                                {
+                                                                    Hex diveclear = pieceHex;
+                                                                    for (int iterator = 0; iterator < 2; iterator++)
+                                                                    {
+                                                                        diveclear = diveclear.downRightNeighbor;
+                                                                        try
+                                                                        {
+                                                                            if (diveclear.piece != null)
+                                                                            {
+                                                                                if (diveclear.piece.team == pieceHex.piece.team)
+                                                                                {
+                                                                                    diveclear.piece = null;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        catch (System.Exception)
+                                                                        {
+
+                                                                        }
+                                                                    }
+                                                                    diveDir = ballDir.downRight;
+                                                                }
+                                                            }
+                                                            catch (System.Exception)
+                                                            {
+
+
+                                                            }
+
+                                                        }
+                                                    }
+                                                    break;
+                                                case 4:
+                                                    current = current.downNeighbor;
+                                                    if (current.piece != null)
+                                                    {
+                                                        if (current.piece is Ball)
+                                                        {
+                                                            try
+                                                            {
+                                                                if (pieceHex.downN.downN.downN != null)
+                                                                {
+                                                                    Hex diveclear = pieceHex;
+                                                                    for (int iterator = 0; iterator < 2; iterator++)
+                                                                    {
+                                                                        diveclear = diveclear.downNeighbor;
+                                                                        try
+                                                                        {
+                                                                            if (diveclear.piece != null)
+                                                                            {
+                                                                                if (diveclear.piece.team == pieceHex.piece.team)
+                                                                                {
+                                                                                    diveclear.piece = null;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        catch (System.Exception)
+                                                                        {
+
+                                                                        }
+                                                                    }
+                                                                    diveDir = ballDir.down;
+                                                                }
+                                                            }
+                                                            catch (System.Exception)
+                                                            {
+
+
+                                                            }
+
+                                                        }
+                                                    }
+                                                    break;
+                                                case 5:
+                                                    current = current.downLeftNeighbor;
+                                                    if (current.piece != null)
+                                                    {
+                                                        if (current.piece is Ball)
+                                                        {
+                                                            try
+                                                            {
+                                                                if (pieceHex.downLeftN.downLeftN.downLeftN != null)
+                                                                {
+                                                                    Hex diveclear = pieceHex;
+                                                                    for (int iterator = 0; iterator < 2; iterator++)
+                                                                    {
+                                                                        diveclear = diveclear.downLeftNeighbor;
+                                                                        try
+                                                                        {
+                                                                            if (diveclear.piece != null)
+                                                                            {
+                                                                                if (diveclear.piece.team == pieceHex.piece.team)
+                                                                                {
+                                                                                    diveclear.piece = null;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        catch (System.Exception)
+                                                                        {
+
+                                                                        }
+                                                                    }
+                                                                    diveDir = ballDir.downRight;
+                                                                }
+                                                            }
+                                                            catch (System.Exception)
+                                                            {
+
+
+                                                            }
+
+                                                        }
+                                                    }
+                                                    break;
+                                                default:
+                                                    break;
+                                            }
+                                        }
+                                        
+                                    }
+                                    switch (diveDir)
+                                    {
+                                        case ballDir.upLeft:
+                                            ballHex.piece = null;
+                                            Program.game.ballPlaceTeam = temp.team;
+                                            Program.game.action = "placeball";
+                                            Program.game.actionHex = pieceHex.upLeftN.upLeftN.upLeftN;
+                                            pieceHex.upLeftN.upLeftN.upLeftN.piece = pieceHex.piece;
+                                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                                            Program.game.ballFlying = false;
+                                            Program.game.cyborgThrow = Team.Neutral;
+                                            break;
+                                        case ballDir.up:
+                                            ballHex.piece = null;
+                                            Program.game.ballPlaceTeam = temp.team;
+                                            Program.game.action = "placeball";
+                                            Program.game.actionHex = pieceHex.upN.upN.upN;
+                                            pieceHex.upN.upN.upN.piece = pieceHex.piece;
+                                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                                            Program.game.ballFlying = false;
+                                            Program.game.cyborgThrow = Team.Neutral;
+                                            break;
+                                        case ballDir.upRight:
+                                            ballHex.piece = null;
+                                            Program.game.ballPlaceTeam = temp.team;
+                                            Program.game.action = "placeball";
+                                            Program.game.actionHex = pieceHex.upRightN.upRightN.upRightN;
+                                            pieceHex.upRightN.upRightN.upRightN.piece = pieceHex.piece;
+                                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                                            Program.game.ballFlying = false;
+                                            Program.game.cyborgThrow = Team.Neutral;
+                                            break;
+                                        case ballDir.downRight:
+                                            ballHex.piece = null;
+                                            Program.game.ballPlaceTeam = temp.team;
+                                            Program.game.action = "placeball";
+                                            Program.game.actionHex = pieceHex.downRightN.downRightN.downRightN;
+                                            pieceHex.downRightN.downRightN.downRightN.piece = pieceHex.piece;
+                                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                                            Program.game.ballFlying = false;
+                                            Program.game.cyborgThrow = Team.Neutral;
+                                            break;
+                                        case ballDir.down:
+                                            ballHex.piece = null;
+                                            Program.game.ballPlaceTeam = temp.team;
+                                            Program.game.action = "placeball";
+                                            Program.game.actionHex = pieceHex.downN.downN.downN;
+                                            pieceHex.downN.downN.downN.piece = pieceHex.piece;
+                                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                                            Program.game.ballFlying = false;
+                                            Program.game.cyborgThrow = Team.Neutral;
+                                            break;
+                                        case ballDir.downLeft:
+                                            ballHex.piece = null;
+                                            Program.game.ballPlaceTeam = temp.team;
+                                            Program.game.action = "placeball";
+                                            Program.game.actionHex = pieceHex.downN.downN.downN;
+                                            pieceHex.downN.downN.downN.piece = pieceHex.piece;
+                                            Program.game.abilityHexes = Program.game.actionHex.getMoveArea(1);
+                                            Program.game.ballFlying = false;
+                                            Program.game.cyborgThrow = Team.Neutral;
+                                            break;
+                                        case ballDir.noDir:
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                 }
             }
@@ -1263,7 +1650,7 @@ namespace Discus
             }
             if (enemyHoveredSpace != null)
             {
-                if (networkLeftClick)
+                if (networkLeftClick||networkRightClick)
                 {
                     spriteBatch.Draw(texture: enemycursor, position: enemyHoveredSpace.location + (new Vector2(0, screenOffset)), scale: new Vector2(.15f, .15f), rotation: MathHelper.Pi / 2, color: Color.SlateGray);
 
